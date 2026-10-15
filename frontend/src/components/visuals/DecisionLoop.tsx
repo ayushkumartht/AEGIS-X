@@ -36,13 +36,13 @@ export function DecisionLoop({ className }: { className?: string }) {
         {LOOP_STEPS.map((step, i) => (
           <li
             key={step.name}
-            className={cn('rounded-xl border p-4 transition-colors duration-300', i === active ? 'border-foreground bg-foreground text-background' : 'bg-background')}
+            className={cn('rounded-xl border p-4 transition-colors duration-300', i === active ? 'border-primary bg-primary text-primary-foreground' : 'bg-background')}
           >
             <p className="text-sm font-medium">
               <span className="mr-2 font-mono opacity-60">{String(i + 1).padStart(2, '0')}</span>
               {step.name}
             </p>
-            <p className={cn('mt-1 text-xs', i === active ? 'text-background/70' : 'text-muted-foreground')}>{step.body}</p>
+            <p className={cn('mt-1 text-xs', i === active ? 'text-primary-foreground/80' : 'text-muted-foreground')}>{step.body}</p>
           </li>
         ))}
       </ol>
@@ -55,8 +55,8 @@ export function DecisionLoop({ className }: { className?: string }) {
           cx={50}
           cy={50}
           r={38}
-          className="fill-none stroke-foreground"
-          strokeWidth={0.6}
+          className="fill-none stroke-primary"
+          strokeWidth={0.8}
           strokeLinecap="round"
           transform="rotate(-90 50 50)"
           animate={{ pathLength: (active + 1) / n }}
@@ -85,7 +85,7 @@ export function DecisionLoop({ className }: { className?: string }) {
             className={cn(
               'absolute -translate-x-1/2 -translate-y-1/2 rounded-full border px-3 py-1.5 text-xs font-medium whitespace-nowrap transition-all duration-300',
               isActive
-                ? 'scale-110 border-foreground bg-foreground text-background shadow-lg'
+                ? 'scale-110 border-primary bg-primary text-primary-foreground shadow-lg shadow-primary/30'
                 : 'bg-background text-muted-foreground hover:text-foreground',
             )}
             style={{ left: `${x}%`, top: `${y}%` }}

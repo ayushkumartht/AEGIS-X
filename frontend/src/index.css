@@ -5,27 +5,34 @@
 
 @custom-variant dark (&:is(.dark *));
 
-/* Strictly monochrome palette: every token is a neutral gray. */
+/*
+ * Flood palette: deep navy ink, royal-blue primary, and four semantic colours
+ * used consistently everywhere — flood (water), risk (failure), safe (target met), warn.
+ */
 :root {
   --radius: 0.75rem;
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.145 0 0);
+  --background: oklch(0.995 0.002 250);
+  --foreground: oklch(0.21 0.035 264);
   --card: oklch(1 0 0);
-  --card-foreground: oklch(0.145 0 0);
+  --card-foreground: oklch(0.21 0.035 264);
   --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.145 0 0);
-  --primary: oklch(0.145 0 0);
-  --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.97 0 0);
-  --secondary-foreground: oklch(0.205 0 0);
-  --muted: oklch(0.97 0 0);
-  --muted-foreground: oklch(0.556 0 0);
-  --accent: oklch(0.97 0 0);
-  --accent-foreground: oklch(0.205 0 0);
-  --destructive: oklch(0.145 0 0);
-  --border: oklch(0.922 0 0);
-  --input: oklch(0.922 0 0);
-  --ring: oklch(0.708 0 0);
+  --popover-foreground: oklch(0.21 0.035 264);
+  --primary: oklch(0.53 0.2 263);
+  --primary-foreground: oklch(0.99 0 0);
+  --secondary: oklch(0.965 0.012 250);
+  --secondary-foreground: oklch(0.28 0.05 264);
+  --muted: oklch(0.966 0.008 250);
+  --muted-foreground: oklch(0.52 0.03 258);
+  --accent: oklch(0.95 0.03 245);
+  --accent-foreground: oklch(0.3 0.08 264);
+  --destructive: oklch(0.62 0.21 22);
+  --border: oklch(0.915 0.013 252);
+  --input: oklch(0.915 0.013 252);
+  --ring: oklch(0.53 0.2 263);
+  --flood: oklch(0.7 0.13 222);
+  --risk: oklch(0.63 0.21 18);
+  --safe: oklch(0.66 0.15 160);
+  --warn: oklch(0.78 0.15 72);
 }
 
 .dark {
@@ -74,6 +81,10 @@
   --color-border: var(--border);
   --color-input: var(--input);
   --color-ring: var(--ring);
+  --color-flood: var(--flood);
+  --color-risk: var(--risk);
+  --color-safe: var(--safe);
+  --color-warn: var(--warn);
 }
 
 @layer base {

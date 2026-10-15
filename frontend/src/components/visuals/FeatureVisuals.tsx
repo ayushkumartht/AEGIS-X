@@ -36,8 +36,9 @@ export function RedTeamGrid() {
               className={cn(
                 'aspect-square rounded-[3px] transition-colors duration-500',
                 inGap && !isBridge && 'bg-transparent',
-                !inGap && (flooded ? 'bg-foreground' : 'bg-muted'),
-                isBridge && 'bg-foreground/80',
+                !inGap && c < 6 && (flooded ? 'bg-flood' : 'bg-primary/15'),
+                !inGap && c > 8 && 'bg-safe/25',
+                isBridge && 'bg-risk',
               )}
             />
           )
@@ -45,14 +46,14 @@ export function RedTeamGrid() {
       </div>
       {/* pulsing ring on the bridge */}
       <motion.div
-        className="pointer-events-none absolute rounded-md border-2 border-foreground"
+        className="pointer-events-none absolute rounded-md border-2 border-risk"
         style={{ left: `${(6 / cols) * 100}%`, width: `${(3 / cols) * 100}%`, top: `${(bridgeRow / rows) * 100}%`, height: `${(1 / rows) * 100}%` }}
         animate={reduce ? undefined : { scale: [1, 1.35, 1], opacity: [1, 0, 1] }}
         transition={{ duration: 1.8, repeat: Infinity }}
       />
       <div className="mt-3 flex items-center justify-between font-mono text-[10px] text-muted-foreground">
         <span>population side</span>
-        <span className="rounded-full bg-foreground px-2 py-0.5 text-background">bridge_main · −100%</span>
+        <span className="rounded-full bg-risk px-2 py-0.5 text-white">bridge_main · −100%</span>
         <span>shelter side</span>
       </div>
     </div>
@@ -61,9 +62,9 @@ export function RedTeamGrid() {
 
 export function TornadoMini() {
   const rows = [
-    { label: 'rainfall_mm', v: 0.84 },
-    { label: 'resource_availability', v: 0.31 },
-    { label: 'comms_degradation', v: 0.12 },
+    { label: 'rainfall_mm', v: 0.84, tone: 'from-primary to-flood' },
+    { label: 'resource_availability', v: 0.31, tone: 'from-violet-500 to-primary' },
+    { label: 'comms_degradation', v: 0.12, tone: 'from-warn to-amber-300' },
   ]
   return (
     <div className="space-y-2.5">
@@ -72,7 +73,7 @@ export function TornadoMini() {
           <span className="truncate font-mono text-[10px] text-muted-foreground">{r.label}</span>
           <div className="h-2.5 overflow-hidden rounded-full bg-muted">
             <motion.div
-              className="h-full rounded-full bg-foreground"
+              className={cn('h-full rounded-full bg-gradient-to-r', r.tone)}
               initial={{ width: 0 }}
               whileInView={{ width: `${r.v * 100}%` }}
               viewport={{ once: true }}
@@ -106,7 +107,7 @@ export function VoiMini() {
           <span className="font-mono text-[10px] text-muted-foreground">0{i + 1}</span>
           <span className="flex-1 truncate text-xs">{r.label}</span>
           <span className="h-1.5 w-14 overflow-hidden rounded-full bg-muted">
-            <span className="block h-full rounded-full bg-foreground" style={{ width: `${r.v * 100}%` }} />
+            <span className="block h-full rounded-full bg-gradient-to-r from-primary to-flood" style={{ width: `${r.v * 100}%` }} />
           </span>
         </motion.li>
       ))}
@@ -128,8 +129,8 @@ export function ParetoMini() {
       <motion.path
         d={d}
         fill="none"
-        className="stroke-foreground"
-        strokeWidth={0.8}
+        className="stroke-safe"
+        strokeWidth={1}
         initial={{ pathLength: 0 }}
         whileInView={{ pathLength: 1 }}
         viewport={{ once: true }}
@@ -143,7 +144,7 @@ export function ParetoMini() {
             cx={x}
             cy={y}
             r={onFront ? 1.8 : 1.3}
-            className={onFront ? 'fill-foreground' : 'fill-muted-foreground/40'}
+            className={onFront ? 'fill-safe' : 'fill-flood/50'}
             initial={{ scale: 0 }}
             whileInView={{ scale: 1 }}
             viewport={{ once: true }}
@@ -151,9 +152,9 @@ export function ParetoMini() {
           />
         )
       })}
-      <circle cx={46} cy={36} r={4} className="fill-none stroke-foreground" strokeWidth={0.5} />
-      <line x1={49} y1={39} x2={56} y2={50} className="stroke-foreground" strokeWidth={0.3} />
-      <text x={57} y={53} className="fill-foreground font-mono text-[3.5px]">resilient pick</text>
+      <circle cx={46} cy={36} r={4} className="fill-primary/10 stroke-primary" strokeWidth={0.6} />
+      <line x1={49} y1={39} x2={56} y2={50} className="stroke-primary" strokeWidth={0.3} />
+      <text x={57} y={53} className="fill-primary font-mono text-[3.5px] font-semibold">resilient pick</text>
       <text x={96} y={89} textAnchor="end" className="fill-muted-foreground font-mono text-[3px]">risk →</text>
       <text x={8} y={10} className="fill-muted-foreground font-mono text-[3px]">people saved</text>
     </svg>
@@ -163,8 +164,8 @@ export function ParetoMini() {
 /** Real measured result from the demo scenario (n = 300, seed = 1). */
 export function CompareMini() {
   const rows = [
-    { plan: 'Baseline plan', mean: 0.609, worst: 0.0 },
-    { plan: 'Reinforced access roads', mean: 0.732, worst: 0.237 },
+    { plan: 'Baseline plan', mean: 0.609, worst: 0.0, meanTone: 'bg-muted-foreground/30', worstTone: 'bg-risk' },
+    { plan: 'Reinforced access roads', mean: 0.732, worst: 0.237, meanTone: 'bg-primary/30', worstTone: 'bg-safe' },
   ]
   return (
     <div className="space-y-4">
@@ -178,14 +179,14 @@ export function CompareMini() {
           </div>
           <div className="relative h-3 overflow-hidden rounded-full bg-muted">
             <motion.div
-              className="absolute inset-y-0 left-0 rounded-full bg-foreground/25"
+              className={cn('absolute inset-y-0 left-0 rounded-full', r.meanTone)}
               initial={{ width: 0 }}
               whileInView={{ width: `${r.mean * 100}%` }}
               viewport={{ once: true }}
               transition={{ duration: 1, delay: 0.2 + i * 0.2 }}
             />
             <motion.div
-              className="absolute inset-y-0 left-0 rounded-full bg-foreground"
+              className={cn('absolute inset-y-0 left-0 rounded-full', r.worstTone)}
               initial={{ width: 0 }}
               whileInView={{ width: `${Math.max(r.worst * 100, 0.8)}%` }}
               viewport={{ once: true }}
@@ -207,17 +208,11 @@ export function HumanMini() {
     <div ref={ref} className="space-y-3">
       <div className="flex gap-2">
         {[
-          { icon: Check, label: 'Accept' },
-          { icon: Pencil, label: 'Edit' },
-          { icon: X, label: 'Reject' },
-        ].map(({ icon: Icon, label }, i) => (
-          <span
-            key={label}
-            className={cn(
-              'inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1 text-xs',
-              i === 0 ? 'bg-foreground text-background' : 'bg-background',
-            )}
-          >
+          { icon: Check, label: 'Accept', tone: 'border-safe bg-safe text-white' },
+          { icon: Pencil, label: 'Edit', tone: 'border-primary/40 bg-background text-primary' },
+          { icon: X, label: 'Reject', tone: 'border-risk/40 bg-background text-risk' },
+        ].map(({ icon: Icon, label, tone }) => (
+          <span key={label} className={cn('inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1 text-xs font-medium', tone)}>
             <Icon className="size-3" />
             {label}
           </span>
@@ -232,7 +227,7 @@ export function HumanMini() {
             animate={inView ? { opacity: 1 } : {}}
             transition={{ delay: 0.3 + i * 0.6 }}
           >
-            <span className="text-foreground">›</span> {line}
+            <span className={i === 2 ? 'text-safe' : i === 0 ? 'text-risk' : 'text-primary'}>›</span> {line}
           </motion.p>
         ))}
       </div>

@@ -29,8 +29,8 @@ export function Reveal({
 
 export function SectionLabel({ children }: { children: ReactNode }) {
   return (
-    <p className="mb-4 inline-flex items-center gap-2 font-mono text-xs tracking-widest text-muted-foreground uppercase">
-      <span className="size-1.5 rounded-full bg-foreground" />
+    <p className="mb-4 inline-flex items-center gap-2 rounded-full border border-primary/20 bg-primary/5 px-3 py-1 font-mono text-[11px] font-medium tracking-widest text-primary uppercase">
+      <span className="size-1.5 rounded-full bg-gradient-to-r from-primary to-flood" />
       {children}
     </p>
   )

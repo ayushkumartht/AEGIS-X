@@ -59,8 +59,9 @@ export function SiteFooter() {
       </div>
       <div className="border-t">
         <p className="mx-auto max-w-6xl px-6 py-6 text-xs text-muted-foreground">
-          Satellite imagery courtesy of NASA Earth Observatory (no endorsement implied). Rescue photographs: Indian Air Force, Indian Army (PIB) and
-          Indian Navy under GODL-India; street photograph CC0. Full attributions in{' '}
+          Satellite imagery courtesy of NASA Earth Observatory (no endorsement implied). Rescue photographs: Indian Air Force, Ministry of Defence /
+          PIB and Indian Navy under GODL-India; community photographs under CC0 and CC BY-SA 4.0. Case-study figures: NASA, IFRC, UNICEF. Full
+          attributions in{' '}
           <Link to="/docs#credits" className="underline underline-offset-4 hover:text-foreground">
             image credits
           </Link>

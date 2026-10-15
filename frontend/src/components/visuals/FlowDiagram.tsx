@@ -80,7 +80,7 @@ export function FlowDiagram({
                 width={width - 24}
                 height={lane.h}
                 rx={14}
-                className="fill-muted/60 stroke-border"
+                className="fill-accent/45 stroke-primary/20"
                 strokeDasharray="4 6"
               />
             </g>
@@ -96,7 +96,7 @@ export function FlowDiagram({
                 <motion.path
                   d={d}
                   fill="none"
-                  className="stroke-foreground/40"
+                  className="stroke-primary/45"
                   strokeWidth={1.5}
                   strokeDasharray={e.dashed ? '5 5' : undefined}
                   initial={reduce ? false : { pathLength: 0 }}
@@ -105,7 +105,7 @@ export function FlowDiagram({
                   transition={{ duration: 0.9, delay: 0.2 + i * 0.08, ease: [0.65, 0, 0.35, 1] }}
                 />
                 {!reduce && !e.dashed && (
-                  <circle r={3.5} className="fill-foreground">
+                  <circle r={3.5} className="fill-flood">
                     <animateMotion dur="2.6s" repeatCount="indefinite" begin={`${1 + i * 0.35}s`} path={d} />
                   </circle>
                 )}
@@ -117,7 +117,7 @@ export function FlowDiagram({
         {lanes.map((lane) => (
           <span
             key={lane.label}
-            className="absolute font-mono text-[10px] tracking-wider text-muted-foreground uppercase"
+            className="absolute font-mono text-[10px] font-medium tracking-wider text-primary/70 uppercase"
             // bottom-left of the lane: connectors usually enter boxes from the top, so this spot stays clear
             style={{ left: pct(28, width), top: pct(lane.y + lane.h - 22, height) }}
           >
@@ -148,7 +148,7 @@ export function FlowDiagram({
             key={n.id}
             className={cn(
               'absolute -translate-x-1/2 -translate-y-1/2 rounded-lg border px-3 py-2 text-center shadow-sm',
-              n.tone === 'solid' && 'border-foreground bg-foreground text-background',
+              n.tone === 'solid' && 'border-primary bg-gradient-to-br from-primary to-blue-700 text-primary-foreground shadow-[0_8px_24px_-10px] shadow-primary/60',
               n.tone === 'muted' && 'border-dashed bg-muted text-foreground',
               (!n.tone || n.tone === 'default') && 'bg-background text-foreground',
             )}
@@ -160,7 +160,7 @@ export function FlowDiagram({
           >
             <p className="text-xs leading-tight font-semibold">{n.label}</p>
             {n.detail && (
-              <p className={cn('mt-0.5 font-mono text-[10px] leading-tight', n.tone === 'solid' ? 'text-background/70' : 'text-muted-foreground')}>
+              <p className={cn('mt-0.5 font-mono text-[10px] leading-tight', n.tone === 'solid' ? 'text-primary-foreground/75' : 'text-muted-foreground')}>
                 {n.detail}
               </p>
             )}
