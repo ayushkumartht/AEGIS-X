@@ -4,7 +4,6 @@ import { animate, motion, useInView, useReducedMotion } from 'motion/react'
 import {
   ArrowRight,
   ArrowUpRight,
-  BookOpen,
   Clock3,
   CloudRainWind,
   Flame,
@@ -20,6 +19,7 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion'
 import { SiteHeader } from '@/components/site/SiteHeader'
+import { HeroCinematic } from '@/components/site/HeroCinematic'
 import { SiteFooter } from '@/components/site/SiteFooter'
 import { Reveal, SectionLabel } from '@/components/site/Reveal'
 import { ScenarioChart } from '@/components/visuals/ScenarioChart'
@@ -120,8 +120,16 @@ function Photo({ src, alt, className, caption }: { src: string; alt: string; cla
   )
 }
 
-const HEADLINE_A = ['Test', 'the', 'decision']
-const HEADLINE_B = ['before', 'reality', 'does.']
+/** Mounts its children only once scrolled into view, so their entrance animations are actually seen. */
+function InView({ children, className }: { children: ReactNode; className?: string }) {
+  const ref = useRef<HTMLDivElement>(null)
+  const inView = useInView(ref, { once: true, margin: '-120px' })
+  return (
+    <div ref={ref} className={className} style={{ minHeight: inView ? undefined : 480 }}>
+      {inView && children}
+    </div>
+  )
+}
 
 /* ------------------------------------------------------------------ */
 /* Page                                                                */
@@ -129,88 +137,35 @@ const HEADLINE_B = ['before', 'reality', 'does.']
 
 export default function LandingPage() {
   const reduce = useReducedMotion()
-  const word = (i: number) => ({
-    initial: reduce ? false : { opacity: 0, y: 24, filter: 'blur(10px)' },
-    animate: { opacity: 1, y: 0, filter: 'blur(0px)' },
-    transition: { duration: 0.8, delay: 0.1 + i * 0.08, ease: [0.22, 1, 0.36, 1] as const },
-  })
 
   return (
     <div className="min-h-screen bg-background text-foreground">
-      <SiteHeader />
+      <SiteHeader overlay />
 
       <main>
         {/* ---------------- Hero ---------------- */}
-        <section className="relative overflow-hidden">
+        <HeroCinematic />
+
+        {/* ---------------- Overview: one plan, sixty futures ---------------- */}
+        <section id="overview" className="relative scroll-mt-16 overflow-hidden py-24 md:py-32">
           <div className="pointer-events-none absolute inset-0" aria-hidden>
-            <div className="absolute -top-40 left-1/2 size-[640px] -translate-x-[85%] rounded-full bg-primary/25 blur-[120px]" />
-            <div className="absolute -top-24 left-1/2 size-[560px] translate-x-[5%] rounded-full bg-flood/30 blur-[120px]" />
-            <div className="absolute top-[520px] left-1/2 size-[520px] -translate-x-1/2 rounded-full bg-violet-400/15 blur-[120px]" />
-            <div className="absolute inset-0 bg-grid mask-radial opacity-60" />
+            <div className="absolute -top-40 left-1/2 size-[640px] -translate-x-[85%] rounded-full bg-primary/15 blur-[120px]" />
+            <div className="absolute -top-24 left-1/2 size-[560px] translate-x-[5%] rounded-full bg-flood/20 blur-[120px]" />
+            <div className="absolute inset-0 bg-grid mask-radial opacity-50" />
           </div>
+          <div className="relative mx-auto max-w-6xl px-6">
+            <SectionHeading
+              className="mx-auto text-center"
+              label="What the officer sees"
+              title={
+                <>
+                  One plan. <Gradient>Sixty futures.</Gradient> One honest answer.
+                </>
+              }
+              body="Instead of a single forecast, every line below is a different way tonight could go. The median looks fine — the red line is the bad night the plan was never tested against. Hover any hour to inspect it."
+            />
 
-          <div className="relative mx-auto max-w-6xl px-6 pt-16 pb-24 md:pt-24">
-            <motion.div initial={reduce ? false : { opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6 }} className="flex justify-center">
-              <Link
-                to="/docs"
-                className="group inline-flex items-center gap-2 rounded-full border border-primary/20 bg-background/70 py-1 pr-3 pl-1 text-xs shadow-sm backdrop-blur transition-colors hover:bg-accent"
-              >
-                <span className="rounded-full bg-gradient-to-r from-primary to-flood px-2 py-0.5 font-medium text-white">New</span>
-                Decision intelligence for flood evacuation
-                <ArrowRight className="size-3 transition-transform group-hover:translate-x-0.5" />
-              </Link>
-            </motion.div>
-
-            <h1 className="mx-auto mt-8 max-w-4xl text-center text-5xl leading-[1.02] font-semibold tracking-tighter text-balance sm:text-6xl md:text-7xl lg:text-8xl">
-              {HEADLINE_A.map((w, i) => (
-                <motion.span key={w} className="inline-block" {...word(i)}>
-                  {w}&nbsp;
-                </motion.span>
-              ))}
-              <br className="hidden sm:block" />
-              {HEADLINE_B.map((w, i) => (
-                <motion.span key={w} className="inline-block" {...word(i + 3)}>
-                  <Gradient>{w}</Gradient>
-                  {i < HEADLINE_B.length - 1 && ' '}
-                </motion.span>
-              ))}
-            </h1>
-
-            <motion.p
-              className="mx-auto mt-8 max-w-2xl text-center text-lg text-pretty text-muted-foreground md:text-xl"
-              initial={reduce ? false : { opacity: 0, y: 12 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.7, delay: 0.6 }}
-            >
-              AEGIS-X runs an evacuation plan through hundreds of possible futures, has a Red Team try to break it, and shows the officer in charge
-              exactly where it fails — before a single boat is sent.
-            </motion.p>
-
-            <motion.div
-              className="mt-10 flex flex-wrap justify-center gap-3"
-              initial={reduce ? false : { opacity: 0, y: 12 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.7, delay: 0.75 }}
-            >
-              <Button asChild size="lg" className="h-11 rounded-full bg-gradient-to-r from-primary to-blue-600 px-6 shadow-lg shadow-primary/30 hover:opacity-95">
-                <Link to="/demo">
-                  Launch the live demo <ArrowRight />
-                </Link>
-              </Button>
-              <Button asChild size="lg" variant="outline" className="h-11 rounded-full bg-background/70 px-6 backdrop-blur">
-                <Link to="/docs">
-                  <BookOpen /> Read the documentation
-                </Link>
-              </Button>
-            </motion.div>
-
-            {/* hero visual */}
-            <motion.div
-              className="relative mx-auto mt-20 max-w-5xl"
-              initial={reduce ? false : { opacity: 0, y: 40, scale: 0.98 }}
-              animate={{ opacity: 1, y: 0, scale: 1 }}
-              transition={{ duration: 1, delay: 0.9, ease: [0.22, 1, 0.36, 1] }}
-            >
+            <InView className="relative mx-auto max-w-5xl">
               <div className="rounded-2xl border bg-card/90 p-2 shadow-[0_40px_100px_-40px_rgba(30,64,175,0.55)] backdrop-blur">
                 <div className="flex items-center justify-between gap-3 rounded-t-xl border-b px-4 py-3">
                   <div className="hidden items-center gap-2 sm:flex">
@@ -230,9 +185,8 @@ export default function LandingPage() {
                 </div>
               </div>
 
-              {/* floating findings */}
               <motion.div
-                className="absolute -top-20 -left-6 hidden w-72 rounded-xl border border-risk/25 bg-card p-4 shadow-xl md:block"
+                className="absolute -top-16 -left-6 hidden w-72 rounded-xl border border-risk/25 bg-card p-4 shadow-xl md:block"
                 initial={reduce ? false : { opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 3.2, duration: 0.6 }}
@@ -255,7 +209,7 @@ export default function LandingPage() {
                 </p>
                 <p className="mt-1 text-xs opacity-75">after the Red-Team-guided fix (demo scenario)</p>
               </motion.div>
-            </motion.div>
+            </InView>
           </div>
         </section>
 

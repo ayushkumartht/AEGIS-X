@@ -14,58 +14,69 @@ const LINKS = [
   { href: '/docs', label: 'Documentation' },
 ]
 
-export function SiteHeader() {
+/**
+ * `overlay`: the header floats over a full-bleed dark hero (white text, no
+ * background) until the page is scrolled, then becomes the normal solid bar.
+ */
+export function SiteHeader({ overlay = false }: { overlay?: boolean }) {
   const [scrolled, setScrolled] = useState(false)
   const [open, setOpen] = useState(false)
 
   useEffect(() => {
-    const onScroll = () => setScrolled(window.scrollY > 8)
+    const onScroll = () => setScrolled(window.scrollY > 24)
     onScroll()
     window.addEventListener('scroll', onScroll, { passive: true })
     return () => window.removeEventListener('scroll', onScroll)
   }, [])
 
+  const solid = scrolled || open
+  const onDark = overlay && !solid
+
   return (
     <header
       className={cn(
-        'sticky top-0 z-50 transition-all duration-300',
-        scrolled || open ? 'border-b bg-background/80 backdrop-blur-xl' : 'border-b border-transparent',
+        'top-0 z-50 transition-all duration-300',
+        overlay ? 'fixed inset-x-0' : 'sticky',
+        solid ? 'border-b bg-background/85 backdrop-blur-xl' : 'border-b border-transparent',
       )}
     >
-      <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-6">
-        <Link to="/" aria-label="AEGIS-X home" onClick={() => setOpen(false)}>
+      <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-6 lg:px-10">
+        <Link to="/" aria-label="AEGIS-X home" onClick={() => setOpen(false)} className={cn('transition-colors', onDark && 'text-white')}>
           <Logo />
         </Link>
 
         <nav className="hidden items-center gap-1 md:flex">
-          {LINKS.map((l) =>
-            l.href.startsWith('/#') ? (
-              <Link key={l.href} to={l.href} className="rounded-md px-3 py-2 text-sm text-muted-foreground transition-colors hover:text-foreground">
+          {LINKS.map((l) => {
+            const base = 'rounded-md px-3 py-2 text-sm transition-colors'
+            const tone = onDark ? 'text-white/75 hover:text-white' : 'text-muted-foreground hover:text-foreground'
+            return l.href.startsWith('/#') ? (
+              <Link key={l.href} to={l.href} className={cn(base, tone)}>
                 {l.label}
               </Link>
             ) : (
-              <NavLink
-                key={l.href}
-                to={l.href}
-                className={({ isActive }) =>
-                  cn('rounded-md px-3 py-2 text-sm transition-colors hover:text-foreground', isActive ? 'text-foreground' : 'text-muted-foreground')
-                }
-              >
+              <NavLink key={l.href} to={l.href} className={({ isActive }) => cn(base, tone, isActive && !onDark && 'text-foreground')}>
                 {l.label}
               </NavLink>
-            ),
-          )}
+            )
+          })}
         </nav>
 
         <div className="hidden md:block">
-          <Button asChild size="sm" className="rounded-full px-4">
+          <Button asChild size="sm" className={cn('rounded-full px-4', onDark && 'bg-white text-slate-950 hover:bg-sky-50')}>
             <Link to="/demo">
               Launch demo <ArrowRight />
             </Link>
           </Button>
         </div>
 
-        <Button variant="ghost" size="icon" className="md:hidden" onClick={() => setOpen((o) => !o)} aria-label={open ? 'Close menu' : 'Open menu'} aria-expanded={open}>
+        <Button
+          variant="ghost"
+          size="icon"
+          className={cn('md:hidden', onDark && 'text-white hover:bg-white/10 hover:text-white')}
+          onClick={() => setOpen((o) => !o)}
+          aria-label={open ? 'Close menu' : 'Open menu'}
+          aria-expanded={open}
+        >
           {open ? <X /> : <Menu />}
         </Button>
       </div>
