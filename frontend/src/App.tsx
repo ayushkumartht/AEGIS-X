@@ -1,27 +1,24 @@
-import { GridCanvas } from './components/GridCanvas'
-import { ControlsPanel } from './components/ControlsPanel'
-import { OutcomeChart } from './components/OutcomeChart'
-import { PlanCompareTable } from './components/PlanCompareTable'
-import { RedTeamPanel } from './components/RedTeamPanel'
+import { lazy, Suspense } from 'react'
+import { BrowserRouter, Routes, Route } from 'react-router-dom'
+import { ScrollManager } from '@/components/site/ScrollManager'
+import LandingPage from './pages/LandingPage'
+
+// Docs and the demo (Recharts, canvas) load only when visited, keeping the landing page light.
+const DocumentationPage = lazy(() => import('./pages/DocumentationPage'))
+const DemoPage = lazy(() => import('./pages/DemoPage'))
 
 function App() {
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 p-4 flex flex-col gap-3">
-      <header>
-        <h1 className="text-xl font-bold">AEGIS-X</h1>
-        <p className="text-xs text-slate-500">Test the decision before reality does. · Flood evacuation demo</p>
-      </header>
-
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
-        <GridCanvas />
-        <ControlsPanel />
-        <div className="flex flex-col gap-3">
-          <OutcomeChart />
-          <PlanCompareTable />
-        </div>
-        <RedTeamPanel />
-      </div>
-    </div>
+    <BrowserRouter>
+      <ScrollManager />
+      <Suspense fallback={<div className="min-h-screen bg-background" />}>
+        <Routes>
+          <Route path="/" element={<LandingPage />} />
+          <Route path="/docs" element={<DocumentationPage />} />
+          <Route path="/demo" element={<DemoPage />} />
+        </Routes>
+      </Suspense>
+    </BrowserRouter>
   )
 }
 
