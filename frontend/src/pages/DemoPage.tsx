@@ -1,9 +1,9 @@
 import { Link } from 'react-router-dom'
-import { GridCanvas } from '../components/GridCanvas'
-import { ControlsPanel } from '../components/ControlsPanel'
-import { OutcomeChart } from '../components/OutcomeChart'
-import { PlanCompareTable } from '../components/PlanCompareTable'
-import { RedTeamPanel } from '../components/RedTeamPanel'
+import { GridCanvas } from '../features/demo/GridCanvas'
+import { ControlsPanel } from '../features/demo/ControlsPanel'
+import { OutcomeChart } from '../features/demo/OutcomeChart'
+import { PlanCompareTable } from '../features/demo/PlanCompareTable'
+import { RedTeamPanel } from '../features/demo/RedTeamPanel'
 
 function DemoPage() {
   return (

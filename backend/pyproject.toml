@@ -1,0 +1,31 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "aegis"
+version = "0.2.0"
+description = "AEGIS-X: test the decision before reality does."
+requires-python = ">=3.12"
+dependencies = [
+    "numpy>=2.5",
+    "scipy>=1.18",
+    "fastapi>=0.148",
+    "uvicorn[standard]>=0.54",
+    "pydantic>=2.14",
+    "pydantic-settings>=2.16",
+    "httpx>=0.28",
+    "groq==1.7.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=9.1",
+]
+
+[tool.setuptools.packages.find]
+include = ["aegis*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]

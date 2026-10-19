@@ -21,50 +21,58 @@ Every domain plugs into the SAME core engine through one function:
 simulate(scenario, plan, conditions) -> metrics
 ```
 
-- **A domain module** ([domains/flood](domains/flood), [domains/fire](domains/fire), [domains/crowd](domains/crowd)) provides
+- **A domain module** ([backend/aegis/domains/flood](backend/aegis/domains/flood), [fire](backend/aegis/domains/fire), [crowd](backend/aegis/domains/crowd)) provides
   the hazard model, how people/agents behave, the plan format, and the
   metrics that matter for that domain.
-- **The core engine** ([core/engine](core/engine)) provides, generically, on top of
+- **The core engine** ([backend/aegis/engine](backend/aegis/engine)) provides, generically, on top of
   `simulate()`: Monte Carlo sampling, Red Team analysis, sensitivity
   analysis, value-of-information ranking, multi-objective plan
   optimisation, and fair plan-vs-plan comparison.
 
-Nothing in `core/engine` imports anything from `domains/`. That's the
+Nothing in `backend/aegis/engine` imports anything from `domains/` (enforced by a test). That's the
 whole "Core Engine + Modules" platform story — provably true in the code,
 not just a claim on a slide.
 
 ## Project layout
 
 ```
-core/engine/
-  interfaces.py   Scenario / Plan / Conditions / SimulationResult / DomainModel
-  montecarlo.py   run_monte_carlo() — hundreds of simulated futures
-  compare.py      compare_plans() — Plan A vs B on IDENTICAL sampled futures
-  redteam.py      find_worst_case() + find_single_points_of_failure()
-  sensitivity.py  which uncertain inputs matter most (tornado chart data)
-  voi.py          expected_value_of_information() — "what to check next"
-  optimizer.py    random_search_optimize() — Pareto front across objectives
-
-domains/flood/model.py   FULL implementation (primary module, see below)
-domains/fire/model.py    stub — same interface, TODO simulate()
-domains/crowd/model.py   stub — same interface, TODO simulate()
-
-api/main.py        FastAPI layer exposing flood endpoints
-tests/              smoke tests for every core/engine piece
+backend/aegis/
+  engine/         domain-free core (never imports domains/)
+    interfaces.py   Scenario / Plan / Conditions / SimulationResult / DomainModel
+    montecarlo.py   run_monte_carlo() — hundreds of simulated futures
+    compare.py      compare_plans() — Plan A vs B on IDENTICAL sampled futures
+    redteam.py      find_worst_case() + find_single_points_of_failure()
+    sensitivity.py  which uncertain inputs matter most (tornado chart data)
+    voi.py          expected_value_of_information() — "what to check next"
+    optimizer.py    random_search_optimize() — Pareto front across objectives
+  domains/flood/    FULL implementation: types.py, model.py, demo.py
+  domains/fire/     stub — same interface
+  domains/crowd/    stub — same interface
+  api/              FastAPI layer (main.py, explain.py)
+  settings.py       settings from .env
+backend/tests/      smoke tests + layer-rule test
+frontend/           React app (landing, docs, demo)
+data/               district configs, reference data, fetched-data cache
+scripts/            dev.ps1, commit.ps1
+docs/               start at docs/README.md; master plan = final-implementation-plan.md
 ```
 
 ## Quickstart
 
 ```powershell
 python -m venv .venv
-.\.venv\Scripts\pip install -r requirements.txt
+.\.venv\Scripts\pip install numpy scipy fastapi "uvicorn[standard]" pydantic pydantic-settings httpx groq==1.7.0 pytest
 
-# run the smoke tests (7 tests, covers every core/engine module against flood)
-.\.venv\Scripts\pytest tests/ -v
+# run the tests (from backend/)
+cd backend
+..\.venv\Scripts\python.exe -m pytest -v
 
-# run the API
-.\.venv\Scripts\python.exe -m uvicorn api.main:app --port 8000 --reload
+# run the API (from backend/)
+..\.venv\Scripts\python.exe -m uvicorn aegis.api.main:app --port 8000 --reload
 # then open http://127.0.0.1:8000/docs
+
+# or start backend + frontend together from the repo root
+.\scripts\dev.ps1
 ```
 
 ### Frontend (demo UI)
@@ -78,7 +86,7 @@ npm run dev
 
 Copy `.env.example` to `.env` and set `GROQ_API_KEY` to enable the Red Team
 narration button; everything else works without it. See
-[docs/flood-evacuation-steps.md](docs/flood-evacuation-steps.md) for the
+[docs/archive/flood-evacuation-steps.md](docs/archive/flood-evacuation-steps.md) for the
 full build log, the demo script, and two real bugs found and fixed while
 building this (inverted resilience calculation; a road-grid topology that
 had no actual single point of failure).
@@ -135,7 +143,7 @@ LLM talking?"
 ## Honest limitations (say these out loud before a judge asks)
 
 - Grid world, not a real road network — swap for OSMnx + a real DEM for production.
-- Flood-rise and evacuation-capacity constants ([domains/flood/model.py](domains/flood/model.py) top) are
+- Flood-rise and evacuation-capacity constants ([backend/aegis/domains/flood/model.py](backend/aegis/domains/flood/model.py) top) are
   illustrative, not calibrated against a real event yet.
 - Sensitivity analysis uses Pearson correlation, a simplified stand-in
   for Sobol indices (documented in `sensitivity.py`).

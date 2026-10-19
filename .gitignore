@@ -13,6 +13,11 @@ out/
 .env.local
 .env.*.local
 
+# Data cache and local database (reference data in data/reference is committed)
+data/raw/
+data/processed/
+data/*.db
+
 # IDE / Editor
 .vscode/
 .idea/
