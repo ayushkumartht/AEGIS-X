@@ -1,0 +1,4 @@
+# Fill from the Cachar District Disaster Management Plan (relief camps / flood shelters).
+# Columns: id,name,lat,lon,capacity,type,source   (source = document and page)
+# While this file has no rows, the scenario builder derives candidate shelters from OpenStreetMap.
+id,name,lat,lon,capacity,type,source

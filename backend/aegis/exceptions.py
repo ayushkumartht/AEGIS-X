@@ -23,3 +23,11 @@ class OptimisationError(AegisError):
 
 class ConfigurationError(AegisError):
     """Raised when settings or parameters are invalid."""
+
+
+class OfflineError(AegisError):
+    """Raised when data is needed from the network but AEGIS_OFFLINE is set and nothing is cached."""
+
+
+class DataError(AegisError):
+    """Raised when fetched or configured data is missing or invalid."""

@@ -1,0 +1,23 @@
+id: silchar_2022
+district: cachar
+name: Silchar flood, June 2022
+point: silchar
+window: {start: "2022-06-10", end: "2022-06-30"}
+
+# Facts the replay is compared against. Each comes from news coverage found during research
+# (see docs/flood-decisions-uncertainty-data.md). Verify against an official report before quoting.
+facts:
+  - text: "Silchar town was reported under water for about 11 days, with depth up to about 12 feet (4 m) in some places."
+    source: "Scroll.in coverage of the 2022 Silchar flood"
+    verify: true
+  - text: "Water from the Barak river submerged much of the town; the Bethukandi embankment was also cut, and the cause (sabotage, neglect or both) is disputed."
+    source: "Scroll.in and Deccan Herald coverage"
+    verify: true
+  - text: "Residents said a lane that was dry in the morning had water on the staircase by 11 pm the same day."
+    source: "Scroll.in coverage"
+    verify: true
+
+# Assumptions used for calibration. Replace with measured data when it is added.
+assumptions:
+  target_flooded_population_share: 0.8   # judgement from "town largely submerged"
+  forecast_error_sigma: 0.15             # spread of the synthetic ensemble

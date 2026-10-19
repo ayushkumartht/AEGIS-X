@@ -3,9 +3,11 @@ import { BrowserRouter, Routes, Route } from 'react-router-dom'
 import { ScrollManager } from '@/components/site/ScrollManager'
 import LandingPage from './pages/LandingPage'
 
-// Docs and the demo (Recharts, canvas) load only when visited, keeping the landing page light.
+// Docs and the console (Recharts, MapLibre) load only when visited, keeping the landing page light.
 const DocumentationPage = lazy(() => import('./pages/DocumentationPage'))
-const DemoPage = lazy(() => import('./pages/DemoPage'))
+const ConsolePage = lazy(() => import('./pages/ConsolePage'))
+const ReplayPage = lazy(() => import('./pages/ReplayPage'))
+const AuditPage = lazy(() => import('./pages/AuditPage'))
 
 function App() {
   return (
@@ -15,7 +17,11 @@ function App() {
         <Routes>
           <Route path="/" element={<LandingPage />} />
           <Route path="/docs" element={<DocumentationPage />} />
-          <Route path="/demo" element={<DemoPage />} />
+          <Route path="/demo" element={<ConsolePage initialDistrict="demo" />} />
+          <Route path="/console" element={<ConsolePage />} />
+          <Route path="/console/:district" element={<ConsolePage />} />
+          <Route path="/replay/:eventId" element={<ReplayPage />} />
+          <Route path="/audit" element={<AuditPage />} />
         </Routes>
       </Suspense>
     </BrowserRouter>

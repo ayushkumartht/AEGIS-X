@@ -1,0 +1,16 @@
+{
+  "q_normal": 1741.365,
+  "k": 16.10245063361562,
+  "event": "silchar_2022",
+  "fit": {
+    "fitted": true,
+    "method": "median annual maximum = normal level; record maximum floods the target share",
+    "years": "2010-2025",
+    "q_bankfull": 1741.365,
+    "q_record": 3242.4,
+    "record_year": "2018",
+    "target_flooded_population_share": 0.8,
+    "record_stage_m": 10.01,
+    "k": 16.10245063361562
+  }
+}
