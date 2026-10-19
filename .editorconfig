@@ -11,5 +11,8 @@ insert_final_newline = true
 [*.{ts,tsx,js,jsx,json,yml,yaml,md}]
 indent_size = 2
 
+[*.{yml,yaml}]
+indent_size = 2
+
 [Makefile]
 indent_style = tab
