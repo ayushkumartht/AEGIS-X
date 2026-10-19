@@ -29,9 +29,11 @@ class MonteCarloBatch:
         return {
             "mean": float(np.mean(vals)),
             "std": float(np.std(vals)),
+            "p05": float(np.percentile(vals, 5)),
             "p10": float(np.percentile(vals, 10)),
             "p50": float(np.percentile(vals, 50)),
             "p90": float(np.percentile(vals, 90)),
+            "p95": float(np.percentile(vals, 95)),
             "worst": float(np.min(vals)) if _lower_is_worse(self.runs, key) else float(np.max(vals)),
             "best": float(np.max(vals)) if _lower_is_worse(self.runs, key) else float(np.min(vals)),
         }
