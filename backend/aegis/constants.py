@@ -1,0 +1,16 @@
+"""Project-wide numeric and string constants."""
+from __future__ import annotations
+
+MC_DEFAULT_SAMPLES: int = 1000
+MC_DEFAULT_SEED: int = 42
+MC_WORST_FRACTION: float = 0.10
+OPT_N_CANDIDATES: int = 50
+OPT_SAMPLES_PER_CANDIDATE: int = 30
+REDTEAM_N_ADVERSARIAL: int = 200
+SENSITIVITY_N_SAMPLES: int = 500
+
+__all__ = [
+    "MC_DEFAULT_SAMPLES", "MC_DEFAULT_SEED", "MC_WORST_FRACTION",
+    "OPT_N_CANDIDATES", "OPT_SAMPLES_PER_CANDIDATE",
+    "REDTEAM_N_ADVERSARIAL", "SENSITIVITY_N_SAMPLES",
+]
