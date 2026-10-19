@@ -1,1 +1,3 @@
-"""AEGIS-X: decision-intelligence engine. Test the decision before reality does."""
+"""AEGIS-X top-level package."""
+__version__ = "0.2.0"
+__all__ = ["__version__"]
