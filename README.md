@@ -1,5 +1,9 @@
 # AEGIS-X
 
+![CI](https://github.com/ayushkumartht/AEGIS-X/actions/workflows/ci.yml/badge.svg) ![Lint](https://github.com/ayushkumartht/AEGIS-X/actions/workflows/lint.yml/badge.svg) ![Version](https://img.shields.io/badge/version-0.2.0-brightgreen.svg)
+
+
+
 **"Test the decision before reality does."**
 
 AEGIS-X is a decision-intelligence platform for high-risk operations. It
@@ -150,3 +154,4 @@ LLM talking?"
 - Optimizer uses random search + Pareto front, a simplified stand-in for
   NSGA-II (documented in `optimizer.py`).
 - Fire and crowd modules are interface-matching stubs, not implemented.
+
