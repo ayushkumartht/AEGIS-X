@@ -106,3 +106,8 @@ def sample_conditions_batch(
     evaluated against the exact same futures (fair comparison)."""
     rng = np.random.default_rng(seed)
     return [domain_model.sample_conditions(rng, scenario) for _ in range(n_samples)]
+
+
+    def median(self, key: str) -> float:
+        """Return the median value for metric `key` across all runs."""
+        return float(np.median(self.metric_array(key)))
