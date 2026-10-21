@@ -66,8 +66,11 @@ def terrain_grid(s: FloodScenario, n: int = 140) -> dict:
     vals = s.node_hand_m
     if len(s.river_latlon) > 1:
         river = np.array(s.river_latlon)[:, ::-1]
-        pts = np.vstack([pts, river])
-        vals = np.concatenate([vals, np.zeros(len(river))])
+        lat_c = float(river[:, 1].mean())
+        dlon, dlat = 25 / (111_320 * np.cos(np.radians(lat_c))), 25 / 110_540  # ~25 m wide river bed
+        bed = [river] + [river + np.array([sx * dlon, sy * dlat]) for sx, sy in ((1, 0), (-1, 0), (0, 1), (0, -1))]
+        pts = np.vstack([pts, *bed])
+        vals = np.concatenate([vals, np.zeros(len(river)), np.full(4 * len(river), 0.3)])
     lon0, lat0 = pts[:, 0].min(), pts[:, 1].min()
     lon1, lat1 = pts[:, 0].max(), pts[:, 1].max()
     gx, gy = np.meshgrid(np.linspace(lon0, lon1, n), np.linspace(lat0, lat1, n))

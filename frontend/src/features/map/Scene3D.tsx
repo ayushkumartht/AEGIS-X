@@ -9,7 +9,7 @@ import { api } from '@/api/client'
 import type { FloodState, Layers, TerrainGrid, Trace } from '@/api/types'
 import { Button } from '@/components/ui/button'
 import { useConsole } from '@/state/consoleStore'
-import { bridgeGroup, housesMesh, paddedBounds, roadMesh, TERRAIN_PAD, terrainMesh, treesMesh, waterNormals } from './scene/builders'
+import { boatGeometry, bridgeGroup, housesMesh, paddedBounds, personGeometry, roadMesh, TERRAIN_PAD, terrainMesh, treesMesh, waterNormals } from './scene/builders'
 import { GeoFrame, lonLat } from './scene/geo'
 import { IMAGERY_CREDIT, loadSatellite } from './scene/satellite'
 
@@ -20,7 +20,7 @@ interface Props {
   level: number
 }
 
-const VEX = 3 // vertical exaggeration, applied to ground, water, houses and bridges alike
+const VEX = 1 // true scale: ground, water, houses and bridges share the same vertical scale
 const HOURS_PER_SECOND = 1.6
 const MAX_BOATS = 48
 const MAX_PEOPLE = 500
@@ -92,7 +92,7 @@ export function Scene3D({ layers, terrain, flood, level }: Props) {
     renderer.shadowMap.enabled = true
     renderer.shadowMap.type = THREE.PCFShadowMap
     renderer.toneMapping = THREE.ACESFilmicToneMapping
-    renderer.toneMappingExposure = 0.55
+    renderer.toneMappingExposure = 0.75
     host.appendChild(renderer.domElement)
     const labels = new CSS2DRenderer()
     labels.setSize(host.clientWidth, host.clientHeight)
@@ -102,7 +102,7 @@ export function Scene3D({ layers, terrain, flood, level }: Props) {
     const scene = new THREE.Scene()
     scene.fog = new THREE.FogExp2('#cdd9e3', 0.32 / size)
     const camera = new THREE.PerspectiveCamera(42, host.clientWidth / host.clientHeight, 2, size * 25)
-    camera.position.set(-size * 0.42, size * 0.38, size * 0.62)
+    camera.position.set(-size * 0.2, size * 0.13, size * 0.3)
     const controls = new OrbitControls(camera, renderer.domElement)
     controls.enableDamping = true
     controls.maxPolarAngle = Math.PI * 0.47
@@ -138,8 +138,9 @@ export function Scene3D({ layers, terrain, flood, level }: Props) {
     // ground: natural colours now, satellite imagery as soon as it arrives
     let ground = terrainMesh(fr, null)
     scene.add(ground)
-    setStatus('Loading satellite imagery')
-    loadSatellite(paddedBounds(terrain.bounds), 140).then((sat) => {
+    const synthetic = Boolean(layers.metadata.synthetic)
+    setStatus(synthetic ? '' : 'Loading satellite imagery')
+    ;(synthetic ? Promise.resolve(null) : loadSatellite(paddedBounds(terrain.bounds), 140)).then((sat) => {
       if (disposed) return
       if (sat) {
         scene.remove(ground)
@@ -148,7 +149,7 @@ export function Scene3D({ layers, terrain, flood, level }: Props) {
         ground = terrainMesh(fr, sat)
         scene.add(ground)
         setStatus('')
-      } else setStatus('Satellite imagery unavailable (offline): showing terrain colours')
+      } else if (!synthetic) setStatus('Satellite imagery unavailable (offline): showing terrain texture')
     })
 
     // river surface, roads, bridges, houses, trees
@@ -200,13 +201,14 @@ export function Scene3D({ layers, terrain, flood, level }: Props) {
       return fr.point(lon, lat)
     })
     const maxPop = Math.max(...clusterPop, 1)
-    const markerGeo = new THREE.CylinderGeometry(1, 1, 1, 24, 1, true).translate(0, 0.5, 0)
-    const markers = new THREE.InstancedMesh(markerGeo, new THREE.MeshBasicMaterial({ transparent: true, opacity: 0.55, depthWrite: false, side: THREE.DoubleSide }), clusterFeatures.length)
+    // settlements: a translucent disc on the ground, its size shows how many people are still there
+    const markerGeo = new THREE.CylinderGeometry(1, 1, 1, 48).translate(0, 0.5, 0)
+    const markers = new THREE.InstancedMesh(markerGeo, new THREE.MeshBasicMaterial({ transparent: true, opacity: 0.38, depthWrite: false }), clusterFeatures.length)
+    markers.renderOrder = 3
     overlayGroup.add(markers)
-    const markerRadius = size / 160
     const setMarker = (k: number, people: number, color: THREE.Color) => {
-      const h = Math.max(people / maxPop, 0.02) * size * 0.08
-      markers.setMatrixAt(k, new THREE.Matrix4().compose(clusterPos[k], new THREE.Quaternion(), new THREE.Vector3(markerRadius, h, markerRadius)))
+      const r = (size / 140) * Math.sqrt(Math.max(people, 0) / maxPop) + size / 900
+      markers.setMatrixAt(k, new THREE.Matrix4().compose(clusterPos[k], new THREE.Quaternion(), new THREE.Vector3(r, 0.6, r)))
       markers.setColorAt(k, color)
     }
     clusterFeatures.forEach((_, k) => setMarker(k, clusterPop[k], new THREE.Color('#f59e0b')))
@@ -216,29 +218,36 @@ export function Scene3D({ layers, terrain, flood, level }: Props) {
       const [lon, lat] = lonLat(f)
       return fr.point(lon, lat)
     })
-    const pinGeo = new THREE.OctahedronGeometry(size / 260, 0).translate(0, size / 55, 0)
-    const pins = new THREE.InstancedMesh(pinGeo, new THREE.MeshStandardMaterial({ color: '#22c55e', emissive: '#16a34a', emissiveIntensity: 0.6 }), shelterFeatures.length)
+    // shelters: a flag pole with a green flag (relief camp)
+    const flagScale = Math.max(1, size / 2500)
+    const pinGeo = new THREE.BoxGeometry(3.2, 2, 0.08).translate(1.7, 8, 0).scale(flagScale, flagScale, flagScale)
+    const pins = new THREE.InstancedMesh(pinGeo, new THREE.MeshStandardMaterial({ color: '#16a34a', emissive: '#15803d', emissiveIntensity: 0.35, side: THREE.DoubleSide }), shelterFeatures.length)
+    const poles = new THREE.InstancedMesh(new THREE.CylinderGeometry(0.08, 0.1, 9, 6).translate(0, 4.5, 0).scale(flagScale, flagScale, flagScale), new THREE.MeshStandardMaterial({ color: '#e5e7eb', metalness: 0.5, roughness: 0.4 }), shelterFeatures.length)
     shelterFeatures.forEach((f, k) => {
       pins.setMatrixAt(k, new THREE.Matrix4().makeTranslation(shelterPos[k].x, shelterPos[k].y, shelterPos[k].z))
+      poles.setMatrixAt(k, new THREE.Matrix4().makeTranslation(shelterPos[k].x, shelterPos[k].y, shelterPos[k].z))
       if (!String(f.properties.kind).startsWith('assumed')) {
         const tag = label(String(f.properties.name), 'aegis-label-shelter')
-        tag.position.set(shelterPos[k].x, shelterPos[k].y + size / 40, shelterPos[k].z)
+        tag.position.set(shelterPos[k].x, shelterPos[k].y + 13 * flagScale, shelterPos[k].z)
         overlayGroup.add(tag)
       }
     })
-    overlayGroup.add(pins)
+    overlayGroup.add(pins, poles)
 
     const stagingPos = new Map<string, THREE.Vector3>()
     for (const f of layers.staging.features) {
       const [lon, lat] = lonLat(f)
       const p = fr.point(lon, lat)
       stagingPos.set(String(f.properties.id), p)
-      const cone = new THREE.Mesh(new THREE.ConeGeometry(size / 220, size / 90, 4).translate(0, size / 180, 0), new THREE.MeshStandardMaterial({ color: '#8b5cf6', emissive: '#6d28d9', emissiveIntensity: 0.5 }))
+      const cone = new THREE.Mesh(new THREE.BoxGeometry(3.2, 2, 0.08).translate(1.7, 8, 0).scale(flagScale, flagScale, flagScale), new THREE.MeshStandardMaterial({ color: '#7c3aed', emissive: '#6d28d9', emissiveIntensity: 0.35, side: THREE.DoubleSide }))
+      const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.1, 9, 6).translate(0, 4.5, 0).scale(flagScale, flagScale, flagScale), new THREE.MeshStandardMaterial({ color: '#e5e7eb', metalness: 0.5, roughness: 0.4 }))
+      pole.position.copy(p)
+      overlayGroup.add(pole)
       cone.position.copy(p)
       cone.userData = { kind: 'staging', id: String(f.properties.id), name: String(f.properties.name) }
       overlayGroup.add(cone)
       const tag = label(String(f.properties.name), 'aegis-label-staging')
-      tag.position.set(p.x, p.y + size / 45, p.z)
+      tag.position.set(p.x, p.y + 13 * flagScale, p.z)
       overlayGroup.add(tag)
     }
     for (const b of layers.bridges) {
@@ -247,15 +256,19 @@ export function Scene3D({ layers, terrain, flood, level }: Props) {
       const c = new THREE.Box3()
       segs.forEach((s) => c.expandByObject(s))
       const tag = label(b.name, 'aegis-label-bridge')
-      tag.position.copy(c.getCenter(new THREE.Vector3()).add(new THREE.Vector3(0, size / 60, 0)))
+      tag.position.copy(c.getCenter(new THREE.Vector3()).add(new THREE.Vector3(0, 12, 0)))
       overlayGroup.add(tag)
     }
 
     // boats and people moving during playback
-    const boatGeo = new THREE.BoxGeometry(7, 1.6, 2.6).translate(0, 0.8, 0)
-    const boats = new THREE.InstancedMesh(boatGeo, new THREE.MeshStandardMaterial({ color: '#f97316', roughness: 0.5 }), MAX_BOATS)
+    const boatScale = Math.max(1, size / 3000)
+    const boats = new THREE.InstancedMesh(boatGeometry(), new THREE.MeshStandardMaterial({ color: '#f97316', roughness: 0.45 }), MAX_BOATS)
     boats.castShadow = true
-    const people = new THREE.InstancedMesh(new THREE.SphereGeometry(Math.max(size / 900, 2.5), 8, 6), new THREE.MeshBasicMaterial({ color: '#fde68a' }), MAX_PEOPLE)
+    const personScale = Math.max(1.2, size / 2200)
+    const people = new THREE.InstancedMesh(personGeometry(), new THREE.MeshStandardMaterial({ roughness: 0.8 }), MAX_PEOPLE)
+    const clothes = ['#b91c1c', '#1d4ed8', '#f59e0b', '#047857', '#7c3aed', '#f1f5f9', '#db2777', '#0f766e']
+    for (let i = 0; i < MAX_PEOPLE; i++) people.setColorAt(i, new THREE.Color(clothes[i % clothes.length]))
+    people.castShadow = true
     const hidden = new THREE.Matrix4().makeScale(0, 0, 0)
     for (let i = 0; i < MAX_BOATS; i++) boats.setMatrixAt(i, hidden)
     for (let i = 0; i < MAX_PEOPLE; i++) people.setMatrixAt(i, hidden)
@@ -269,7 +282,7 @@ export function Scene3D({ layers, terrain, flood, level }: Props) {
     })
 
     // focus ring for the highlighted element
-    const ring = new THREE.Mesh(new THREE.TorusGeometry(size / 90, size / 900, 12, 64), new THREE.MeshBasicMaterial({ color: '#ef4444' }))
+    const ring = new THREE.Mesh(new THREE.TorusGeometry(size / 110, Math.max(size / 1500, 0.8), 12, 64), new THREE.MeshBasicMaterial({ color: '#ef4444' }))
     ring.rotation.x = -Math.PI / 2
     ring.visible = false
     scene.add(ring)
@@ -301,7 +314,7 @@ export function Scene3D({ layers, terrain, flood, level }: Props) {
     // picking
     const ray = new THREE.Raycaster()
     const ptr = new THREE.Vector2()
-    const pickables = () => [markers, pins, bridges.group, ...overlayGroup.children.filter((o) => o.userData.kind === 'staging')]
+    const pickables = () => [markers, pins, poles, bridges.group, ...overlayGroup.children.filter((o) => o.userData.kind === 'staging')]
     const pick = (ev: PointerEvent): Picked | null => {
       const r = renderer.domElement.getBoundingClientRect()
       ptr.set(((ev.clientX - r.left) / r.width) * 2 - 1, -((ev.clientY - r.top) / r.height) * 2 + 1)
@@ -312,7 +325,7 @@ export function Scene3D({ layers, terrain, flood, level }: Props) {
           const p = clusterFeatures[hit.instanceId].properties
           return { title: String(p.name), rows: [`${Number(p.population).toLocaleString()} people`, `floods when water is ${p.hand} m above normal`], highlight: { kind: 'cluster', id: String(p.id) } }
         }
-        if (hit.object === pins && hit.instanceId !== undefined) {
+        if ((hit.object === pins || hit.object === poles) && hit.instanceId !== undefined) {
           const p = shelterFeatures[hit.instanceId].properties
           return { title: String(p.name), rows: [`capacity ${p.capacity}`, String(p.kind).replace(/_/g, ' '), String(p.source)], highlight: { kind: 'shelter', id: String(p.id) } }
         }
@@ -419,9 +432,9 @@ export function Scene3D({ layers, terrain, flood, level }: Props) {
             const phase = (L.t * 1.3 + i * 0.37) % 1
             const s = phase < 0.5 ? phase * 2 : (1 - phase) * 2
             const p = new THREE.Vector3().lerpVectors(from, to, s)
-            p.y = water.position.y + 0.2
+            p.y = water.position.y - 0.4
             q.setFromAxisAngle(yAxis, -Math.atan2(to.z - from.z, to.x - from.x) + (phase < 0.5 ? 0 : Math.PI))
-            m.compose(p, q, new THREE.Vector3(size / 900, size / 900, size / 900).max(new THREE.Vector3(1, 1, 1)))
+            m.compose(p, q, new THREE.Vector3(boatScale, boatScale, boatScale))
             boats.setMatrixAt(used++, m)
           }
         }
@@ -438,8 +451,8 @@ export function Scene3D({ layers, terrain, flood, level }: Props) {
             const c = sources[k][1]
             const prog = (L.t * 0.9 + j * 0.137) % 1
             const p = new THREE.Vector3().lerpVectors(clusterPos[c], nearestShelter[c], prog)
-            p.y = fr.y(fr.groundAtXZ(p.x, p.z)) + 3
-            m.makeTranslation(p.x, p.y, p.z)
+            p.y = fr.y(fr.groundAtXZ(p.x, p.z)) + 0.2
+            m.compose(p, q.identity(), new THREE.Vector3(personScale, personScale, personScale))
             people.setMatrixAt(walkers++, m)
           }
         }

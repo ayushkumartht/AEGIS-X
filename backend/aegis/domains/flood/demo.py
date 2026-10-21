@@ -75,7 +75,9 @@ def generate_demo_scenario(seed: int = 7) -> FloodScenario:
         StagingPoint("sp1", "Base west", index[("L", left_cols - 1, 6)], *latlon[index[("L", left_cols - 1, 6)]]),
         StagingPoint("sp2", "Base east", index[("R", 0, 1)], *latlon[index[("R", 0, 1)]]),
     ]
-    river = [list(_latlon(-SPACING_M * 1.5, y)) for y in np.linspace(0, (rows - 1) * SPACING_M, 8)]
+    # the river runs through the gap between the two sides, under the bridge
+    gap_x = (left_cols + 0.5) * SPACING_M
+    river = [list(_latlon(gap_x + 25 * np.sin(y / 180), y)) for y in np.linspace(-3 * SPACING_M, (rows + 2) * SPACING_M, 60)]
     return FloodScenario(
         name="demo",
         metadata={"boats_total": 6, "vehicles_total": 4, "synthetic": True},
