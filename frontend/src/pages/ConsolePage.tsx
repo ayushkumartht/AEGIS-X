@@ -8,6 +8,7 @@ import { Badge } from '@/components/ui/badge'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { CheckNextTab } from '@/features/check-next/CheckNextTab'
 import { DecisionBar } from '@/features/decision/DecisionBar'
+import { CesiumScene } from '@/features/map/CesiumScene'
 import { MapView } from '@/features/map/MapView'
 import { Scene3D } from '@/features/map/Scene3D'
 import { OptionsTab } from '@/features/options/OptionsTab'
@@ -32,7 +33,7 @@ export default function ConsolePage({ initialDistrict: fixed }: { initialDistric
   const initialDistrict = fixed ?? params.district
   const { district, setDistrict, tab, setTab, plan, setPlan, whatIf, level, setLevel } = useConsole()
   const sim = useRunSim()
-  const [view, setView] = useState<'3d' | '2d'>('3d')
+  const [view, setView] = useState<'cesium' | '3d' | '2d'>('cesium')
 
   useEffect(() => {
     if (initialDistrict && initialDistrict !== useConsole.getState().district) setDistrict(initialDistrict)
@@ -91,7 +92,9 @@ export default function ConsolePage({ initialDistrict: fixed }: { initialDistric
 
       <main className="grid min-h-0 flex-1 grid-cols-1 lg:grid-cols-[1fr_30rem]">
         <section className="relative min-h-[40vh]">
-          {data && view === '3d' && terrain.data ? (
+          {data && view === 'cesium' ? (
+            <CesiumScene district={district} layers={data} flood={flood.data} level={level} />
+          ) : data && view === '3d' && terrain.data ? (
             <Scene3D layers={data} terrain={terrain.data} flood={flood.data} level={level} />
           ) : data && view === '2d' ? (
             <MapView layers={data} flood={flood.data} />
@@ -100,9 +103,9 @@ export default function ConsolePage({ initialDistrict: fixed }: { initialDistric
           )}
           {data && (
             <div className="absolute left-3 top-3 z-10 flex overflow-hidden rounded-lg border bg-card/95 text-xs shadow backdrop-blur" role="group" aria-label="Map view">
-              {(['3d', '2d'] as const).map((v) => (
+              {([['cesium', '3D (real terrain)'], ['3d', '3D (lite)'], ['2d', '2D map']] as const).map(([v, label]) => (
                 <button key={v} onClick={() => setView(v)} aria-pressed={view === v} className={view === v ? 'bg-primary px-3 py-1.5 font-medium text-primary-foreground' : 'px-3 py-1.5 hover:bg-accent'}>
-                  {v === '3d' ? '3D' : '2D map'}
+                  {label}
                 </button>
               ))}
             </div>

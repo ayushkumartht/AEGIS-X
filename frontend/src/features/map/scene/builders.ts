@@ -13,7 +13,7 @@ export function paddedBounds(bounds: [number, number, number, number]): [number,
   return [bounds[0] - dx, bounds[1] - dy, bounds[2] + dx, bounds[3] + dy]
 }
 
-const box1 = () => new THREE.BoxGeometry(1, 1, 1).translate(0, 0.5, 0)
+export const box1 = () => new THREE.BoxGeometry(1, 1, 1).translate(0, 0.5, 0)
 
 /* ---------------------------------------------------------------- ground */
 
@@ -244,7 +244,7 @@ const TANK = ['#1f2326', '#2b3a55', '#1f2326', '#3a3a3a']
 const RISE = 0.55 // gable roof rise, relative to wall height
 
 /** Single storey body with gable ends (ridge along x). Unit size; walls 0..1, gables up to 1 + RISE. */
-function gableBodyGeometry(): THREE.BufferGeometry {
+export function gableBodyGeometry(): THREE.BufferGeometry {
   const tri = new THREE.BufferGeometry()
   const v = [0.5, 1, -0.5, 0.5, 1 + RISE, 0, 0.5, 1, 0.5, -0.5, 1, 0.5, -0.5, 1 + RISE, 0, -0.5, 1, -0.5]
   tri.setAttribute('position', new THREE.Float32BufferAttribute(v, 3))
@@ -257,7 +257,7 @@ function gableBodyGeometry(): THREE.BufferGeometry {
 }
 
 /** Two roof slopes with eave overhang; ridge along x. */
-function gableRoofGeometry(): THREE.BufferGeometry {
+export function gableRoofGeometry(): THREE.BufferGeometry {
   const oh = 0.1
   const top = 1 + RISE + 0.03
   const x0 = -0.5 - oh, x1 = 0.5 + oh
@@ -365,7 +365,7 @@ export function housesMesh(fr: GeoFrame, layers: Layers, mapped: Building[], see
   return { group, count, mapped: mapped.length }
 }
 
-function mappedBuildings(fr: GeoFrame, mapped: Building[]): THREE.Mesh | null {
+export function mappedBuildings(fr: GeoFrame, mapped: Building[]): THREE.Mesh | null {
   const geos: THREE.BufferGeometry[] = []
   for (const b of mapped) {
     const pts = b.ring.map(([lon, lat]) => new THREE.Vector2(fr.x(lon), -fr.z(lat)))
@@ -376,8 +376,8 @@ function mappedBuildings(fr: GeoFrame, mapped: Building[]): THREE.Mesh | null {
     const geo = new THREE.ExtrudeGeometry(new THREE.Shape(pts), { depth: levels * 3.2 * fr.vex, bevelEnabled: false })
     geo.rotateX(-Math.PI / 2)
     geo.translate(0, fr.y(fr.ground(cx, cy)), 0)
-    geos.push(geo.toNonIndexed())
-    geo.dispose()
+    geos.push(geo.index ? geo.toNonIndexed() : geo)
+    if (geo.index) geo.dispose()
   }
   if (!geos.length) return null
   const merged = mergeGeometries(geos)
@@ -402,7 +402,7 @@ function broadleafCrown(seed: number): THREE.BufferGeometry {
       p.setXYZ(k, p.getX(k) * s, p.getY(k) * s, p.getZ(k) * s)
     }
     g.translate((r() - 0.5) * 0.7, 0.55 + r() * 0.5, (r() - 0.5) * 0.7)
-    const flat = g.toNonIndexed()
+    const flat = g.index ? g.toNonIndexed() : g
     flat.deleteAttribute('uv')
     parts.push(flat)
   }

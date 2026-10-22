@@ -9,6 +9,8 @@ Read in this order.
 | 3 | [flood-decisions-uncertainty-data.md](flood-decisions-uncertainty-data.md) | Which decisions, which uncertainties, which data, from where? (research + tested sources) |
 | 4 | [final-implementation-plan.md](final-implementation-plan.md) | **The master build plan**: architecture, stack, folders, modules, API, phases. Start every implementation task here. |
 
+| 5 | [flood-final-status-and-demo.md](flood-final-status-and-demo.md) | **Latest status**: what is done, what is left, Groq setup, demo script. |
+
 Folders:
 - [decisions/](decisions) : short records of design decisions as they are made.
 - [archive/](archive) : the v0 grid-demo plans, kept for history. Superseded by the final plan.

@@ -144,6 +144,18 @@
   box-shadow: 0 1px 4px rgb(15 23 42 / 0.25);
   transform: translateY(-50%);
 }
+.aegis-label-pop {
+  padding: 1px 8px;
+  border-radius: 999px;
+  font: 700 11px/1.5 "Geist Variable", ui-sans-serif, system-ui, sans-serif;
+  color: #ffffff;
+  background: #d97706;
+  border: 2px solid #ffffff;
+  box-shadow: 0 1px 5px rgb(15 23 42 / 0.4);
+  transform: translateY(-50%);
+}
+.aegis-label-pop.flooded { background: #dc2626; }
+.aegis-label-pop.safe { background: #16a34a; }
 .aegis-label-bridge { border-left: 3px solid #f59e0b; }
 .aegis-label-shelter { border-left: 3px solid #22c55e; }
 .aegis-label-staging { border-left: 3px solid #8b5cf6; }

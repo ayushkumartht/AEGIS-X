@@ -63,3 +63,6 @@ Thumbs.db
 # Secrets
 *.pem
 *.key
+
+# Local package backup (not part of the project)
+.runtimepackages.local-backup/
