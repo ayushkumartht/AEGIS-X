@@ -11,8 +11,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, Field
 
 from aegis.api.limits import heavy, rate_limited
-from aegis.api.security import require
-from aegis.auth import User
+from aegis.api.schemas import OperatorName
 from aegis.exceptions import AegisError
 from aegis.ingest import geocode
 from aegis.llm.base import get_provider
@@ -23,7 +22,6 @@ from aegis.settings import get_settings
 from aegis.storage import repo
 
 router = APIRouter(prefix="/ops", tags=["command-center"])
-WRITERS = ("admin", "officer")
 INDIA = (68.0, 6.0, 98.0, 38.0)
 SEARCH_GAP_S = 1.1
 _search_lock = threading.Lock()
@@ -104,7 +102,7 @@ def district_list(exercise: bool = False):
     return {"districts": out, "rule": watch.load_config().rule.__dict__, "exercise": exercise}
 
 
-@router.post("/refresh", dependencies=[Depends(require(*WRITERS)), Depends(heavy)])
+@router.post("/refresh", dependencies=[Depends(heavy)])
 def refresh(risk: bool = False):
     result = {"alerts": poller.refresh_alerts()}
     if risk:
@@ -113,6 +111,7 @@ def refresh(risk: bool = False):
 
 
 class BriefRequest(BaseModel):
+    author: str = OperatorName
     mode: str = advisor.DEFAULT_MODE
     include_engine: bool = True
     exercise: bool = False  # build the brief from the simulated scenario instead of live data
@@ -124,27 +123,28 @@ def modes():
 
 
 @router.post("/brief", dependencies=[Depends(heavy)])
-async def make_brief(req: BriefRequest, user: User = Depends(require(*WRITERS))):
+async def make_brief(req: BriefRequest):
     if req.mode not in advisor.MODES:
         raise HTTPException(422, f"Unknown mode {req.mode!r}.")
     result = await asyncio.to_thread(advisor.build_brief, req.mode, get_provider(), req.include_engine, req.exercise)
-    brief_id = store.add_brief(result["mode"], f"{user.name} <{user.email}>", result["source"], result["model"],
+    brief_id = store.add_brief(result["mode"], req.author.strip(), result["source"], result["model"],
                                result["evidence"], result["sections"], result["recommendations"])
     return store.get_brief(brief_id)
 
 
 @router.get("/briefs")
-def briefs(limit: int = Query(10, ge=1, le=50), _: User = Depends(require(*WRITERS))):
+def briefs(limit: int = Query(10, ge=1, le=50)):
     return store.list_briefs(limit)
 
 
 class DecisionBody(BaseModel):
+    author: str = OperatorName
     action: Literal["accept", "reject"]
     note: str = Field(default="", max_length=500)
 
 
-@router.post("/recommendations/{rec_id}/decision")
-def decide(rec_id: int, body: DecisionBody, user: User = Depends(require(*WRITERS))):
+@router.post("/recommendations/{rec_id}/decision", dependencies=[Depends(rate_limited)])
+def decide(rec_id: int, body: DecisionBody):
     rec = store.get_recommendation(rec_id)
     if rec is None:
         raise HTTPException(404, "No such recommendation.")
@@ -152,7 +152,7 @@ def decide(rec_id: int, body: DecisionBody, user: User = Depends(require(*WRITER
         raise HTTPException(409, f"This recommendation was already {rec['status']}.")
     brief = store.get_brief(rec["brief_id"])
     cited = {i["id"]: i for i in brief["evidence"] if i["id"] in rec["evidence"]}
-    signature = f"{user.name} <{user.email}>"
+    signature = body.author.strip()
     decision_id = repo.add_decision(
         rec.get("district_id") or "all", signature, body.action, {}, None,
         f"Command Center recommendation: {rec['action']}", body.note,
