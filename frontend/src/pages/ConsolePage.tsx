@@ -3,6 +3,7 @@ import { Link, useParams } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { api } from '@/api/client'
 import type { Layers } from '@/api/types'
+import { AccountMenu } from '@/components/site/AccountMenu'
 import { Logo } from '@/components/site/Logo'
 import { Badge } from '@/components/ui/badge'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
@@ -80,12 +81,15 @@ export default function ConsolePage({ initialDistrict: fixed }: { initialDistric
           <Link className="hover:text-foreground" to="/replay/silchar_2022">Replay</Link>
           <Link className="hover:text-foreground" to="/audit">Decision log</Link>
           <Link className="hover:text-foreground" to="/docs">Documentation</Link>
+          <AccountMenu />
         </nav>
       </header>
 
       {apiDown && (
         <div className="border-b bg-destructive/10 px-4 py-2 text-sm text-risk" role="alert">
-          Cannot reach the AEGIS-X API. Start it with scripts\dev.ps1 (or uvicorn aegis.api.main:app from backend/).
+          {import.meta.env.DEV
+            ? 'Cannot reach the AEGIS-X API. Start it with scripts\\dev.ps1 (or uvicorn aegis.api.main:app from backend/).'
+            : 'Cannot reach the AEGIS-X server. It may be waking up after being idle; try again in a minute.'}
         </div>
       )}
       {layers.isError && !apiDown && <div className="border-b bg-destructive/10 px-4 py-2 text-sm text-risk" role="alert">{String(layers.error)}</div>}

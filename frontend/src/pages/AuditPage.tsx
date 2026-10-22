@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { api } from '@/api/client'
+import { AccountMenu } from '@/components/site/AccountMenu'
 import { Logo } from '@/components/site/Logo'
 import { Badge } from '@/components/ui/badge'
 import { fmtPct } from '@/lib/formatters'
@@ -12,7 +13,10 @@ export default function AuditPage() {
       <header className="flex items-center gap-4 border-b px-6 py-3">
         <Link to="/" aria-label="AEGIS-X home"><Logo /></Link>
         <h1 className="text-lg font-semibold">Decision log</h1>
-        <Link to="/console" className="ml-auto text-sm text-muted-foreground hover:text-foreground">Back to the console</Link>
+        <nav className="ml-auto flex items-center gap-4 text-sm text-muted-foreground">
+          <Link to="/console" className="hover:text-foreground">Back to the console</Link>
+          <AccountMenu />
+        </nav>
       </header>
       <main className="mx-auto max-w-5xl px-6 py-6">
         <p className="mb-4 text-sm text-muted-foreground">Every decision is stored with who made it, the plan, the analysis it was based on, and the seed that reproduces it.</p>

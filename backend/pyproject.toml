@@ -10,13 +10,12 @@ requires-python = ">=3.12"
 dependencies = [
     "numpy>=2.5",
     "scipy>=1.18",
-    "fastapi>=0.148",
+    "fastapi>=0.143",
     "uvicorn[standard]>=0.54",
     "pydantic>=2.14",
     "pydantic-settings>=2.16",
     "httpx>=0.28",
     "pyyaml>=6",
-    "groq==1.7.0",
 ]
 
 [project.optional-dependencies]

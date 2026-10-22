@@ -13,10 +13,10 @@ out/
 .env.local
 .env.*.local
 
-# Data cache and local database (reference data in data/reference is committed)
-data/raw/
-data/processed/
+# Local database. The built scenario (data/processed) and its source cache (data/raw) are
+# committed so a deployed server starts without rebuilding from OpenStreetMap.
 data/*.db
+data/*.db-journal
 
 # IDE / Editor
 .vscode/

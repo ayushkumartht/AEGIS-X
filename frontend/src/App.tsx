@@ -8,6 +8,8 @@ const DocumentationPage = lazy(() => import('./pages/DocumentationPage'))
 const ConsolePage = lazy(() => import('./pages/ConsolePage'))
 const ReplayPage = lazy(() => import('./pages/ReplayPage'))
 const AuditPage = lazy(() => import('./pages/AuditPage'))
+const LoginPage = lazy(() => import('./pages/LoginPage'))
+const CommandCenterPage = lazy(() => import('./pages/CommandCenterPage'))
 
 function App() {
   return (
@@ -22,6 +24,8 @@ function App() {
           <Route path="/console/:district" element={<ConsolePage />} />
           <Route path="/replay/:eventId" element={<ReplayPage />} />
           <Route path="/audit" element={<AuditPage />} />
+          <Route path="/login" element={<LoginPage />} />
+          <Route path="/command" element={<CommandCenterPage />} />
         </Routes>
       </Suspense>
     </BrowserRouter>

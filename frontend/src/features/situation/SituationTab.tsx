@@ -1,8 +1,10 @@
 import { useState } from 'react'
+import { Link, useLocation } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { api } from '@/api/client'
 import type { Layers, VariableInfo, WhatIf } from '@/api/types'
 import { Button } from '@/components/ui/button'
+import { canWrite, useAuth } from '@/state/authStore'
 import { useConsole } from '@/state/consoleStore'
 
 function rangeText(v: VariableInfo): string {
@@ -27,6 +29,8 @@ export function SituationTab({ layers }: { layers: Layers }) {
   const reports = useQuery({ queryKey: ['reports', district], queryFn: () => api.reports(district) })
   const [text, setText] = useState('')
   const [source, setSource] = useState('control_room')
+  const writer = canWrite(useAuth((s) => s.user))
+  const location = useLocation()
 
   const refresh = useMutation({
     mutationFn: () => api.refreshForecast(district),
@@ -136,28 +140,37 @@ export function SituationTab({ layers }: { layers: Layers }) {
       <section>
         <h3 className="font-semibold">Field reports</h3>
         <p className="text-muted-foreground">A report updates how sure we are, weighted by its source and age.</p>
-        <textarea
-          className="mt-2 w-full rounded-lg border bg-background p-2"
-          rows={2}
-          maxLength={1000}
-          placeholder='For example: "Main bridge is under water" or "We have 6 boats ready"'
-          value={text}
-          onChange={(e) => setText(e.target.value)}
-          aria-label="Field report text"
-        />
-        <div className="mt-2 flex gap-2">
-          <select className="rounded-lg border bg-background px-2 py-1.5" value={source} onChange={(e) => setSource(e.target.value)} aria-label="Report source">
-            <option value="field_team">Field team</option>
-            <option value="official_feed">Official feed</option>
-            <option value="control_room">Control room</option>
-            <option value="public_call">Public call</option>
-            <option value="social_media">Social media</option>
-          </select>
-          <Button size="sm" onClick={() => submit.mutate()} disabled={text.trim().length < 3 || submit.isPending}>
-            Add report
-          </Button>
-        </div>
-        {submit.isError && <p className="mt-1 text-risk">{String(submit.error)}</p>}
+        {writer ? (
+          <>
+            <textarea
+              className="mt-2 w-full rounded-lg border bg-background p-2"
+              rows={2}
+              maxLength={1000}
+              placeholder='For example: "Main bridge is under water" or "We have 6 boats ready"'
+              value={text}
+              onChange={(e) => setText(e.target.value)}
+              aria-label="Field report text"
+            />
+            <div className="mt-2 flex gap-2">
+              <select className="rounded-lg border bg-background px-2 py-1.5" value={source} onChange={(e) => setSource(e.target.value)} aria-label="Report source">
+                <option value="field_team">Field team</option>
+                <option value="official_feed">Official feed</option>
+                <option value="control_room">Control room</option>
+                <option value="public_call">Public call</option>
+                <option value="social_media">Social media</option>
+              </select>
+              <Button size="sm" onClick={() => submit.mutate()} disabled={text.trim().length < 3 || submit.isPending}>
+                Add report
+              </Button>
+            </div>
+            {submit.isError && <p className="mt-1 text-risk">{String(submit.error)}</p>}
+          </>
+        ) : (
+          <p className="mt-2 rounded-md bg-accent px-3 py-2">
+            Reports change the picture for everyone, so adding one needs an officer account.{' '}
+            <Link className="font-medium underline" to={`/login?next=${encodeURIComponent(location.pathname)}`}>Sign in</Link>
+          </p>
+        )}
         {cond.data && cond.data.beliefs.length > 0 && (
           <ul className="mt-3 space-y-1">
             {cond.data.beliefs.map((b) => (
@@ -171,7 +184,7 @@ export function SituationTab({ layers }: { layers: Layers }) {
         <ul className="mt-3 space-y-1 text-muted-foreground">
           {reports.data?.slice(0, 5).map((r) => (
             <li key={r.id}>
-              {r.source_type.replace('_', ' ')}: "{r.raw_text}" read as {r.parsed.claim.replace('_', ' ')} ({r.parsed.method})
+              {r.source_type.replace('_', ' ')}: "{r.raw_text}" read as {r.parsed.claim.replace('_', ' ')} ({r.parsed.method}){r.author ? `, by ${r.author.split(' <')[0]}` : ''}
             </li>
           ))}
         </ul>

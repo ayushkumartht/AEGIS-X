@@ -30,6 +30,47 @@ export interface Health {
   llm_provider: string
 }
 
+export type Role = 'admin' | 'officer' | 'viewer'
+
+export interface AuthUser {
+  id: number
+  email: string
+  name: string
+  role: Role
+}
+
+export interface Account extends AuthUser {
+  created_at: string
+  active: boolean
+  last_login_at: string | null
+}
+
+export interface DistrictStatus extends DistrictInfo {
+  forecast: Conditions['forecast'] | null
+  error: string | null
+  totals?: { population: number; areas: number; shelters: number; shelter_capacity: number; bridges: number; boats: number | null }
+  beliefs?: Belief[]
+}
+
+export interface Overview {
+  system: {
+    version: string
+    env: string
+    offline: boolean
+    llm_provider: string
+    llm_model: string | null
+    rate_limit_per_min: number
+    max_heavy_jobs: number
+    server_time: string
+  }
+  counts: { run: number; decision: number; field_report: number; user: number }
+  districts: DistrictStatus[]
+  activity: { date: string; runs: number; decisions: number; reports: number }[]
+  recent_runs: { id: number; created_at: string; district: string; n_samples: number; seed: number | null; summary: Summary }[]
+  recent_decisions: { id: number; decided_at: string; district: string; author: string; action: 'accept' | 'edit' | 'reject'; run_id: number | null; note: string }[]
+  recent_reports: StoredReport[]
+}
+
 export interface DistrictInfo {
   id: string
   name: string
@@ -173,6 +214,8 @@ export interface ReportResult {
 export interface StoredReport {
   id: number
   received_at: string
+  district: string
+  author: string
   source_type: string
   raw_text: string
   parsed: ReportResult['parsed']

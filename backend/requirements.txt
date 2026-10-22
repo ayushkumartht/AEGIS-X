@@ -1,0 +1,9 @@
+# Pinned runtime dependencies for the server image (the versions the test suite runs on).
+numpy==2.5.4
+scipy==1.18.1
+fastapi==0.143.1
+uvicorn[standard]==0.54.0
+pydantic==2.14.1
+pydantic-settings==2.16.0
+httpx==0.28.1
+PyYAML==6.0.3

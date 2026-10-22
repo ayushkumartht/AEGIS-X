@@ -2,9 +2,10 @@ from __future__ import annotations
 
 from dataclasses import asdict
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends
 
 from aegis.api import context
+from aegis.api.limits import rate_limited
 from aegis.api.schemas import FloodStateRequest
 from aegis.domains.flood.geojson import flood_state, scenario_layers, terrain_grid
 from aegis.domains.flood.plans import baseline_plan, plan_to_dict
@@ -73,7 +74,7 @@ def baseline(district: str):
     return plan_to_dict(baseline_plan(ctx.scenario))
 
 
-@router.post("/districts/{district}/forecast/refresh")
+@router.post("/districts/{district}/forecast/refresh", dependencies=[Depends(rate_limited)])
 def refresh_forecast(district: str):
     ctx = context.get_context(district, refresh=True)
     return {"forecast": ctx.forecast, "variables": [v.describe() for v in ctx.space.variables]}

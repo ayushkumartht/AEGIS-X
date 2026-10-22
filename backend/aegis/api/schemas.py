@@ -95,9 +95,8 @@ class DecisionRequest(BaseModel):
     action: Literal["accept", "edit", "reject"]
     plan: PlanModel
     run_id: int | None = None
-    explanation: str = ""
-    note: str = ""
-    author: str = Field(default="duty officer", min_length=1, max_length=80)
+    explanation: str = Field(default="", max_length=5000)
+    note: str = Field(default="", max_length=500)
 
 
 class FloodStateRequest(BaseModel):

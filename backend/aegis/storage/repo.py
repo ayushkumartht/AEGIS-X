@@ -28,8 +28,19 @@ def add_run(district: str, plan: dict, n_samples: int, seed: int | None, forecas
 def get_run(run_id: int) -> dict | None:
     with connect() as c:
         row = c.execute("SELECT * FROM run WHERE id = ?", (run_id,)).fetchone()
-    if row is None:
-        return None
+    return None if row is None else _run(row)
+
+
+def list_runs(district: str | None = None, limit: int = 50) -> list[dict[str, Any]]:
+    with connect() as c:
+        if district:
+            rows = c.execute("SELECT * FROM run WHERE district = ? ORDER BY id DESC LIMIT ?", (district, limit)).fetchall()
+        else:
+            rows = c.execute("SELECT * FROM run ORDER BY id DESC LIMIT ?", (limit,)).fetchall()
+    return [_run(r) for r in rows]
+
+
+def _run(row) -> dict[str, Any]:
     return {
         "id": row["id"],
         "created_at": row["created_at"],
@@ -42,24 +53,33 @@ def get_run(run_id: int) -> dict | None:
     }
 
 
-def add_report(district: str, source_type: str, raw_text: str, parsed: dict) -> int:
+def add_report(district: str, source_type: str, raw_text: str, parsed: dict, author: str = "") -> int:
     with connect() as c:
         return c.execute(
-            "INSERT INTO field_report (received_at, district, source_type, raw_text, parsed_json) VALUES (?,?,?,?,?)",
-            (now_iso(), district, source_type, raw_text, dumps(parsed)),
+            "INSERT INTO field_report (received_at, district, source_type, raw_text, parsed_json, author) "
+            "VALUES (?,?,?,?,?,?)",
+            (now_iso(), district, source_type, raw_text, dumps(parsed), author),
         ).lastrowid
 
 
-def list_reports(district: str) -> list[dict[str, Any]]:
+def list_reports(district: str | None = None, limit: int | None = None) -> list[dict[str, Any]]:
+    sql, args = "SELECT * FROM field_report", []
+    if district:
+        sql, args = sql + " WHERE district = ?", [district]
+    sql += " ORDER BY id DESC"
+    if limit:
+        sql, args = sql + " LIMIT ?", [*args, limit]
     with connect() as c:
-        rows = c.execute("SELECT * FROM field_report WHERE district = ? ORDER BY id DESC", (district,)).fetchall()
+        rows = c.execute(sql, args).fetchall()
     return [
         {
             "id": r["id"],
             "received_at": r["received_at"],
+            "district": r["district"],
             "source_type": r["source_type"],
             "raw_text": r["raw_text"],
             "parsed": json.loads(r["parsed_json"]),
+            "author": r["author"],
         }
         for r in rows
     ]
@@ -76,12 +96,15 @@ def add_decision(
         ).lastrowid
 
 
-def list_decisions(district: str | None = None) -> list[dict[str, Any]]:
+def list_decisions(district: str | None = None, limit: int | None = None) -> list[dict[str, Any]]:
+    sql, args = "SELECT * FROM decision", []
+    if district:
+        sql, args = sql + " WHERE district = ?", [district]
+    sql += " ORDER BY id DESC"
+    if limit:
+        sql, args = sql + " LIMIT ?", [*args, limit]
     with connect() as c:
-        if district:
-            rows = c.execute("SELECT * FROM decision WHERE district = ? ORDER BY id DESC", (district,)).fetchall()
-        else:
-            rows = c.execute("SELECT * FROM decision ORDER BY id DESC").fetchall()
+        rows = c.execute(sql, args).fetchall()
     out = []
     for r in rows:
         run = get_run(r["run_id"]) if r["run_id"] is not None else None
@@ -100,3 +123,71 @@ def list_decisions(district: str | None = None) -> list[dict[str, Any]]:
             }
         )
     return out
+
+
+def counts() -> dict[str, int]:
+    with connect() as c:
+        return {t: c.execute(f"SELECT COUNT(*) FROM {t}").fetchone()[0] for t in ("run", "decision", "field_report", "user")}
+
+
+# ------------------------------------------------------------------ accounts
+
+
+def _user(r) -> dict[str, Any]:
+    return {
+        "id": r["id"],
+        "created_at": r["created_at"],
+        "email": r["email"],
+        "name": r["name"],
+        "role": r["role"],
+        "active": bool(r["active"]),
+        "last_login_at": r["last_login_at"],
+        "password_hash": r["password_hash"],
+    }
+
+
+def public_user(u: dict[str, Any]) -> dict[str, Any]:
+    return {k: v for k, v in u.items() if k != "password_hash"}
+
+
+def add_user(email: str, name: str, role: str, password_hash: str) -> int:
+    with connect() as c:
+        return c.execute(
+            "INSERT INTO user (created_at, email, name, role, password_hash) VALUES (?,?,?,?,?)",
+            (now_iso(), email.strip().lower(), name, role, password_hash),
+        ).lastrowid
+
+
+def get_user(user_id: int) -> dict[str, Any] | None:
+    with connect() as c:
+        row = c.execute("SELECT * FROM user WHERE id = ?", (user_id,)).fetchone()
+    return None if row is None else _user(row)
+
+
+def get_user_by_email(email: str) -> dict[str, Any] | None:
+    with connect() as c:
+        row = c.execute("SELECT * FROM user WHERE email = ?", (email.strip().lower(),)).fetchone()
+    return None if row is None else _user(row)
+
+
+def list_users() -> list[dict[str, Any]]:
+    with connect() as c:
+        rows = c.execute("SELECT * FROM user ORDER BY id").fetchall()
+    return [public_user(_user(r)) for r in rows]
+
+
+def count_users() -> int:
+    with connect() as c:
+        return c.execute("SELECT COUNT(*) FROM user").fetchone()[0]
+
+
+def update_user(user_id: int, **fields: Any) -> None:
+    allowed = {"name", "role", "active", "password_hash", "last_login_at"}
+    sets = {k: (int(v) if k == "active" else v) for k, v in fields.items() if k in allowed and v is not None}
+    if not sets:
+        return
+    with connect() as c:
+        c.execute(
+            f"UPDATE user SET {', '.join(f'{k} = ?' for k in sets)} WHERE id = ?",
+            (*sets.values(), user_id),
+        )

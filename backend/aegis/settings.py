@@ -23,6 +23,17 @@ class Settings(BaseSettings):
     aegis_db_url: str = f"sqlite:///{(REPO_ROOT / 'data' / 'aegis.db').as_posix()}"
     aegis_offline: bool = False
     aegis_cors_origins: str = "http://localhost:5173"
+    aegis_cors_origin_regex: str = ""  # e.g. https://aegis-x-.*\.vercel\.app for preview deploys
+
+    # Accounts. The secret signs login tokens; the admin account is created on first start.
+    aegis_secret_key: str = ""
+    aegis_admin_email: str = ""
+    aegis_admin_password: str = ""
+    aegis_token_hours: int = 12
+
+    # Public-site protection for the compute-heavy endpoints.
+    aegis_rate_limit_per_min: int = 30
+    aegis_max_heavy_jobs: int = 2
 
     llm_provider: str = "groq"
     llm_model: str = ""

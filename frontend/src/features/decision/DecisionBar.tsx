@@ -1,29 +1,33 @@
 import { useState } from 'react'
+import { Link, useLocation } from 'react-router-dom'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { api } from '@/api/client'
 import { Button } from '@/components/ui/button'
 import { fmtPct } from '@/lib/formatters'
+import { canWrite, useAuth } from '@/state/authStore'
 import { useConsole } from '@/state/consoleStore'
 
 type Action = 'accept' | 'edit' | 'reject'
 
 export function DecisionBar() {
   const { district, plan, sim, narration } = useConsole()
+  const user = useAuth((s) => s.user)
+  const location = useLocation()
   const [note, setNote] = useState('')
-  const [author, setAuthor] = useState('duty officer')
   const [done, setDone] = useState<string | null>(null)
   const qc = useQueryClient()
 
   const save = useMutation({
     mutationFn: (action: Action) =>
-      api.addDecision({ district, action, plan: plan ?? {}, run_id: sim?.run_id ?? null, explanation: narration?.text ?? '', note, author }),
+      api.addDecision({ district, action, plan: plan ?? {}, run_id: sim?.run_id ?? null, explanation: narration?.text ?? '', note }),
     onSuccess: (r, action) => {
       setDone(`Decision #${r.id} recorded: ${action}.`)
       setNote('')
       qc.invalidateQueries({ queryKey: ['decisions'] })
     },
   })
-  const disabled = !sim || save.isPending
+  const allowed = canWrite(user)
+  const disabled = !sim || save.isPending || !allowed
   const decide = (a: Action) => {
     setDone(null)
     save.mutate(a)
@@ -42,8 +46,16 @@ export function DecisionBar() {
         {done && <div className="text-safe" role="status">{done}</div>}
         {save.isError && <div className="text-risk" role="alert">{String(save.error)}</div>}
       </div>
-      <input className="w-36 rounded-lg border bg-background px-2 py-1.5" aria-label="Your name or role" value={author} onChange={(e) => setAuthor(e.target.value)} maxLength={80} />
-      <input className="w-56 rounded-lg border bg-background px-2 py-1.5" aria-label="Note for the log" placeholder="Note (optional)" value={note} onChange={(e) => setNote(e.target.value)} />
+      {allowed ? (
+        <>
+          <span className="text-muted-foreground">Signed as <strong className="text-foreground">{user?.name}</strong></span>
+          <input className="w-56 rounded-lg border bg-background px-2 py-1.5" aria-label="Note for the log" placeholder="Note (optional)" value={note} onChange={(e) => setNote(e.target.value)} maxLength={500} />
+        </>
+      ) : (
+        <span className="text-muted-foreground">
+          <Link className="font-medium text-foreground underline" to={`/login?next=${encodeURIComponent(location.pathname)}`}>Sign in</Link> as an officer to record a decision.
+        </span>
+      )}
       <div className="flex gap-2">
         <Button onClick={() => decide('accept')} disabled={disabled}>Accept</Button>
         <Button variant="outline" onClick={() => decide('edit')} disabled={disabled}>Edit and accept</Button>

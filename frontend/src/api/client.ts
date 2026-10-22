@@ -1,4 +1,7 @@
+import { useAuth } from '@/state/authStore'
 import type {
+  Account,
+  AuthUser,
   Building,
   CompareResult,
   Conditions,
@@ -9,10 +12,12 @@ import type {
   Health,
   Layers,
   OptionsResult,
+  Overview,
   Plan,
   RedTeamResult,
   ReplayResult,
   ReportResult,
+  Role,
   SimResult,
   StoredReport,
   TerrainGrid,
@@ -21,18 +26,29 @@ import type {
   WhatIf,
 } from './types'
 
-const ORIGIN = import.meta.env.VITE_API_URL ?? 'http://localhost:8000'
+const ORIGIN = (import.meta.env.VITE_API_URL || 'http://localhost:8000').replace(/\/+$/, '')
 const BASE = `${ORIGIN}/api/v1`
 
-export class ApiError extends Error {}
+export class ApiError extends Error {
+  status: number
+  constructor(message: string, status = 0) {
+    super(message)
+    this.status = status
+  }
+}
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
+  const token = useAuth.getState().token
+  const headers = new Headers(init?.headers)
+  if (token) headers.set('Authorization', `Bearer ${token}`)
   let res: Response
   try {
-    res = await fetch(`${BASE}${path}`, init)
+    res = await fetch(`${BASE}${path}`, { ...init, headers })
   } catch {
     throw new ApiError(`Cannot reach the AEGIS-X API at ${ORIGIN}. Is the backend running?`)
   }
+  // A token the server no longer accepts (expired, account disabled): drop it so the UI shows signed-out.
+  if (res.status === 401 && token) useAuth.getState().signOut()
   if (!res.ok) {
     let detail = res.statusText
     try {
@@ -41,13 +57,14 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
     } catch {
       /* keep the status text */
     }
-    throw new ApiError(detail)
+    throw new ApiError(detail, res.status)
   }
   return (await res.json()) as T
 }
 
-const post = <T>(path: string, body: unknown) =>
-  request<T>(path, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
+const send = <T>(method: string, path: string, body: unknown) =>
+  request<T>(path, { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
+const post = <T>(path: string, body: unknown) => send<T>('POST', path, body)
 
 export interface RunArgs {
   district: string
@@ -85,18 +102,40 @@ export const api = {
     run_id: number | null
     explanation: string
     note: string
-    author: string
   }) => post<{ id: number }>('/decisions', body),
   decisions: (district?: string) => request<DecisionRecord[]>(`/decisions${district ? `?district=${district}` : ''}`),
   replay: (event: string) => request<ReplayResult>(`/replay/${event}`),
+  login: (email: string, password: string) => post<{ token: string; user: AuthUser }>('/auth/login', { email, password }),
+  me: () => request<AuthUser>('/auth/me'),
+  users: () => request<Account[]>('/auth/users'),
+  addUser: (body: { email: string; name: string; role: Role; password: string }) => post<Account>('/auth/users', body),
+  updateUser: (id: number, body: { name?: string; role?: Role; active?: boolean; password?: string }) =>
+    send<Account>('PATCH', `/auth/users/${id}`, body),
+  overview: () => request<Overview>('/admin/overview'),
 }
 
-/** Run a simulation over the WebSocket so progress can be shown; resolves with the final result. */
+/**
+ * Run a simulation over the WebSocket so progress can be shown; resolves with the final result.
+ * If the WebSocket cannot connect (some proxies block it), the same run goes over plain HTTP.
+ */
 export function simulateStream(args: RunArgs, onProgress: (p: number) => void): Promise<SimResult> {
+  return streamOverSocket(args, onProgress).catch((err: unknown) => {
+    if (err instanceof SocketUnavailable) return api.simulate(args)
+    throw err
+  })
+}
+
+class SocketUnavailable extends Error {}
+
+function streamOverSocket(args: RunArgs, onProgress: (p: number) => void): Promise<SimResult> {
   return new Promise((resolve, reject) => {
     const ws = new WebSocket(`${ORIGIN.replace(/^http/, 'ws')}/api/v1/ws/simulate`)
     let finished = false
-    ws.onopen = () => ws.send(JSON.stringify(args))
+    let opened = false
+    ws.onopen = () => {
+      opened = true
+      ws.send(JSON.stringify(args))
+    }
     ws.onmessage = (ev) => {
       const msg = JSON.parse(ev.data as string)
       if (msg.error) {
@@ -110,10 +149,16 @@ export function simulateStream(args: RunArgs, onProgress: (p: number) => void): 
       }
     }
     ws.onerror = () => {
-      if (!finished) reject(new ApiError(`Cannot reach the AEGIS-X API at ${ORIGIN}. Is the backend running?`))
+      if (!finished) {
+        finished = true
+        reject(opened ? new ApiError('The connection dropped during the simulation.') : new SocketUnavailable())
+      }
     }
     ws.onclose = () => {
-      if (!finished) reject(new ApiError('The connection closed before the simulation finished.'))
+      if (!finished) {
+        finished = true
+        reject(opened ? new ApiError('The connection closed before the simulation finished.') : new SocketUnavailable())
+      }
     }
   })
 }

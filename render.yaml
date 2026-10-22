@@ -1,0 +1,39 @@
+# Render blueprint for the AEGIS-X API. Render > New > Blueprint > pick this repo.
+# The frontend is deployed separately on Vercel (see docs/fullstack-deployment-plan.md).
+services:
+  - type: web
+    name: aegis-x-api
+    runtime: docker
+    dockerfilePath: ./backend/Dockerfile
+    dockerContext: .
+    plan: starter            # a persistent disk needs a paid instance; on "free" the audit log resets on restart
+    region: singapore
+    healthCheckPath: /api/v1/health
+    autoDeploy: true
+    disk:
+      name: aegis-data
+      mountPath: /var/data
+      sizeGB: 1
+    envVars:
+      - key: AEGIS_ENV
+        value: prod
+      - key: AEGIS_DB_URL
+        value: sqlite:////var/data/aegis.db
+      - key: AEGIS_SECRET_KEY
+        generateValue: true
+      - key: AEGIS_CORS_ORIGINS
+        sync: false          # your Vercel URL, e.g. https://aegis-x.vercel.app
+      - key: AEGIS_CORS_ORIGIN_REGEX
+        sync: false          # optional, e.g. https://aegis-x-.*\.vercel\.app
+      - key: AEGIS_ADMIN_EMAIL
+        sync: false
+      - key: AEGIS_ADMIN_PASSWORD
+        sync: false
+      - key: LLM_PROVIDER
+        value: groq
+      - key: GROQ_API_KEY
+        sync: false
+      - key: AEGIS_RATE_LIMIT_PER_MIN
+        value: "30"
+      - key: AEGIS_MAX_HEAVY_JOBS
+        value: "2"

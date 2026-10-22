@@ -1,0 +1,15 @@
+.git
+.github
+.venv
+.env
+.env.*
+.runtimepackages.local-backup
+**/__pycache__
+**/*.pyc
+.pytest_cache
+backend/tests
+frontend
+docs
+scripts
+data/*.db
+data/*.db-journal

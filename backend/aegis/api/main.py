@@ -2,13 +2,16 @@
 
 from __future__ import annotations
 
+from contextlib import asynccontextmanager
+
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
 from aegis import __version__
 from aegis.api import context
-from aegis.api.routers import analysis, districts, replay, simulate, workflow
+from aegis.api.routers import admin, analysis, auth, districts, replay, simulate, workflow
+from aegis.auth import ensure_admin
 from aegis.exceptions import AegisError, DataError, OfflineError
 from aegis.llm.base import get_provider
 from aegis.settings import get_settings
@@ -16,11 +19,23 @@ from aegis.settings import get_settings
 API_PREFIX = "/api/v1"
 
 
+@asynccontextmanager
+async def lifespan(_: FastAPI):
+    ensure_admin()
+    yield
+
+
 def create_app() -> FastAPI:
     settings = get_settings()
-    app = FastAPI(title="AEGIS-X", description="Test the decision before reality does.", version=__version__)
+    app = FastAPI(
+        title="AEGIS-X", description="Test the decision before reality does.", version=__version__, lifespan=lifespan
+    )
     app.add_middleware(
-        CORSMiddleware, allow_origins=settings.cors_origins, allow_methods=["*"], allow_headers=["*"]
+        CORSMiddleware,
+        allow_origins=settings.cors_origins,
+        allow_origin_regex=settings.aegis_cors_origin_regex or None,
+        allow_methods=["*"],
+        allow_headers=["*"],
     )
 
     @app.exception_handler(DataError)
@@ -44,7 +59,7 @@ def create_app() -> FastAPI:
             "districts": context.available_districts(),
         }
 
-    for router in (districts.router, simulate.router, analysis.router, workflow.router, replay.router):
+    for router in (districts.router, simulate.router, analysis.router, workflow.router, replay.router, auth.router, admin.router):
         app.include_router(router, prefix=API_PREFIX)
     return app
 

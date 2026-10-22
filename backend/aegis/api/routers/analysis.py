@@ -1,8 +1,9 @@
 from __future__ import annotations
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends
 
 from aegis.api import context, services
+from aegis.api.limits import heavy
 from aegis.api.schemas import (
     AnalysisRequest,
     CompareRequest,
@@ -11,7 +12,7 @@ from aegis.api.schemas import (
     SensitivityRequest,
 )
 
-router = APIRouter(prefix="/analysis", tags=["analysis"])
+router = APIRouter(prefix="/analysis", tags=["analysis"], dependencies=[Depends(heavy)])
 
 
 @router.post("/compare")

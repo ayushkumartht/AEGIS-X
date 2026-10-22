@@ -1,10 +1,13 @@
 from __future__ import annotations
 
+import asyncio
+
 import numpy as np
-from fastapi import APIRouter, WebSocket, WebSocketDisconnect
+from fastapi import APIRouter, Depends, HTTPException, WebSocket, WebSocketDisconnect
 from pydantic import ValidationError
 
-from aegis.api import context, services
+from aegis.api import context, limits, services
+from aegis.api.limits import heavy
 from aegis.api.schemas import AnalysisRequest, TraceRequest
 from aegis.domains.flood.plans import plan_to_dict
 from aegis.engine import sample_futures
@@ -16,7 +19,7 @@ router = APIRouter(tags=["simulate"])
 CHUNK = 50
 
 
-@router.post("/simulate")
+@router.post("/simulate", dependencies=[Depends(heavy)])
 def simulate(req: AnalysisRequest):
     ctx = context.get_context(req.district)
     plan = services.plan_of(ctx, req.plan)
@@ -26,7 +29,7 @@ def simulate(req: AnalysisRequest):
     return result
 
 
-@router.post("/simulate/trace")
+@router.post("/simulate/trace", dependencies=[Depends(heavy)])
 def simulate_trace(req: TraceRequest):
     """Hour-by-hour playback of one representative future of the plan."""
     ctx = context.get_context(req.district)
@@ -35,18 +38,27 @@ def simulate_trace(req: TraceRequest):
 
 @router.websocket("/ws/simulate")
 async def simulate_stream(ws: WebSocket):
-    """Send {"progress": 0..1} while simulating, then {"done": true, "result": ...}."""
+    """Send {"progress": 0..1} while simulating, then {"done": true, "result": ...}.
+
+    The simulation runs in a worker thread, so the server keeps answering other requests.
+    """
     await ws.accept()
+    slots = None
     try:
+        limits.check_rate(ws.client.host if ws.client else "unknown")
         req = AnalysisRequest(**await ws.receive_json())
-        ctx = context.get_context(req.district)
+        slots = await asyncio.to_thread(limits.acquire_slot)
+        ctx = await asyncio.to_thread(context.get_context, req.district)
         plan = services.plan_of(ctx, req.plan)
         model = services.model_for(ctx, req.what_if)
-        futures = sample_futures(model, ctx.scenario, req.n_samples, req.seed)
+        futures = await asyncio.to_thread(sample_futures, model, ctx.scenario, req.n_samples, req.seed)
+
+        def run_chunk(chunk):
+            return [MonteCarloRun(cond, model.simulate(ctx.scenario, plan, cond)) for cond in chunk]
+
         runs: list[MonteCarloRun] = []
         for i in range(0, len(futures), CHUNK):
-            for cond in futures[i : i + CHUNK]:
-                runs.append(MonteCarloRun(cond, model.simulate(ctx.scenario, plan, cond)))
+            runs.extend(await asyncio.to_thread(run_chunk, futures[i : i + CHUNK]))
             await ws.send_json({"progress": len(runs) / len(futures)})
         result = services.batch_result(ctx, plan, MonteCarloBatch(plan, runs))
         result["forecast"] = ctx.forecast
@@ -54,9 +66,13 @@ async def simulate_stream(ws: WebSocket):
         await ws.send_json({"done": True, "result": result})
     except WebSocketDisconnect:
         return
+    except HTTPException as exc:
+        await ws.send_json({"error": exc.detail})
     except (ValidationError, DataError, ValueError, KeyError, np.linalg.LinAlgError) as exc:
         await ws.send_json({"error": str(exc)})
     finally:
+        if slots is not None:
+            slots.release()
         try:
             await ws.close()
         except RuntimeError:
