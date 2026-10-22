@@ -56,11 +56,7 @@ CREATE TABLE IF NOT EXISTS ops_recommendation (
     detail_json TEXT NOT NULL, status TEXT NOT NULL DEFAULT 'proposed', decided_by TEXT, decided_at TEXT,
     decision_id INTEGER
 );
-CREATE TABLE IF NOT EXISTS user (
-    id INTEGER PRIMARY KEY AUTOINCREMENT, created_at TEXT NOT NULL, email TEXT NOT NULL UNIQUE,
-    name TEXT NOT NULL, role TEXT NOT NULL, password_hash TEXT NOT NULL,
-    active INTEGER NOT NULL DEFAULT 1, last_login_at TEXT
-);
+
 """
 
 
