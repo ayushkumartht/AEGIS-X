@@ -11,6 +11,12 @@ from aegis.ingest.http import use_transport
 from aegis.settings import Settings
 
 
+@pytest.fixture(autouse=True)
+def no_background_polling(monkeypatch):
+    """The Command Center poller must never run during tests: it would call the live feeds."""
+    monkeypatch.setenv("AEGIS_OPS_POLL", "false")
+
+
 @pytest.fixture(scope="session")
 def flood_model():
     return FloodModel()

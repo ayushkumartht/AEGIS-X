@@ -15,7 +15,6 @@ from aegis.storage import repo
 from aegis.storage.db import db_path
 
 P = "/api/v1"
-ADMIN = {"email": "admin@example.org", "password": "correct horse battery"}
 
 
 def _indicator(level="warning", exceed5=0.5):
@@ -41,8 +40,6 @@ GAUGE_ALERT = {
 def db(tmp_path, monkeypatch):
     monkeypatch.setenv("AEGIS_DB_URL", f"sqlite:///{(tmp_path / 'ops.db').as_posix()}")
     monkeypatch.setenv("LLM_PROVIDER", "none")
-    monkeypatch.setenv("AEGIS_ADMIN_EMAIL", ADMIN["email"])
-    monkeypatch.setenv("AEGIS_ADMIN_PASSWORD", ADMIN["password"])
     monkeypatch.setenv("AEGIS_RATE_LIMIT_PER_MIN", "0")
     get_settings.cache_clear()
     watch.load_config.cache_clear()
@@ -204,15 +201,14 @@ def test_exercise_brief_says_it_is_simulated_and_decisions_are_flagged(db, monke
     store.add_indicator("cachar", "normal", _indicator("normal", 0.0))
     monkeypatch.setattr(advisor, "engine_facts", lambda *a, **k: None)  # the engine has its own tests
     with TestClient(create_app()) as c:
-        auth = login(c)
-        brief = c.post(f"{P}/ops/brief", json={"mode": "armed_forces", "exercise": True}, headers=auth).json()
+        brief = c.post(f"{P}/ops/brief", json={"mode": "armed_forces", "exercise": True, "author": "Ops desk"}).json()
         first = brief["sections"]["situation"][0]["text"]
         assert first.startswith("EXERCISE") and any(i["kind"] == "exercise" for i in brief["evidence"])
         assert brief["recommendations"] and any("simulated" in u["text"] for u in brief["sections"]["uncertainty"])
         rec = brief["recommendations"][0]
-        c.post(f"{P}/ops/recommendations/{rec['id']}/decision", json={"action": "accept"}, headers=auth)
+        c.post(f"{P}/ops/recommendations/{rec['id']}/decision", json={"action": "accept"})
         assert c.get(f"{P}/decisions").json()[0]["evidence"]["exercise"] is True
-        live = c.post(f"{P}/ops/brief", json={"mode": "armed_forces"}, headers=auth).json()
+        live = c.post(f"{P}/ops/brief", json={"mode": "armed_forces"}).json()
         assert not any(i["kind"] == "exercise" for i in live["evidence"])
 
 
@@ -264,10 +260,6 @@ def client(db):
         yield c
 
 
-def login(client):
-    return {"Authorization": "Bearer " + client.post(f"{P}/auth/login", json=ADMIN).json()["token"]}
-
-
 def test_ops_read_endpoints_are_public_and_report_feed_health(client):
     seed()
     store.feed_attempt("NDMA SACHET", True, 5)
@@ -283,24 +275,22 @@ def test_ops_read_endpoints_are_public_and_report_feed_health(client):
     assert any(x["level"] == "unknown" for x in d)  # districts without an indicator are shown, not hidden
 
 
-def test_brief_needs_login_and_is_stored_then_decided_once(client, monkeypatch):
+def test_brief_is_stored_then_decided_once_by_a_named_person(client, monkeypatch):
     seed()
     monkeypatch.setattr(advisor, "collect_evidence", lambda include_engine=True, simulated=False: _collect())
-    assert client.post(f"{P}/ops/brief", json={}).status_code == 401
-    auth = login(client)
-    assert client.post(f"{P}/ops/brief", json={"mode": "nonsense"}, headers=auth).status_code == 422
-    brief = client.post(f"{P}/ops/brief", json={"mode": "police"}, headers=auth).json()
+    assert client.post(f"{P}/ops/brief", json={"mode": "nonsense"}).status_code == 422
+    brief = client.post(f"{P}/ops/brief", json={"mode": "police"}).json()
     assert brief["source"] == "rules" and brief["recommendations"] and brief["evidence"]
     rec = brief["recommendations"][0]
     assert rec["status"] == "proposed"
-    out = client.post(f"{P}/ops/recommendations/{rec['id']}/decision", json={"action": "accept", "note": "go"}, headers=auth)
+    out = client.post(f"{P}/ops/recommendations/{rec['id']}/decision", json={"action": "accept", "note": "go", "author": "R. Kumar, DDMA"})
     assert out.status_code == 200 and out.json()["status"] == "accepted"
-    assert client.post(f"{P}/ops/recommendations/{rec['id']}/decision", json={"action": "reject"}, headers=auth).status_code == 409
+    assert client.post(f"{P}/ops/recommendations/{rec['id']}/decision", json={"action": "reject"}).status_code == 409
     log = client.get(f"{P}/decisions").json()
-    assert log[0]["author"].startswith("Administrator") and log[0]["evidence"]["kind"] == "command_center_recommendation"
+    assert log[0]["author"] == "R. Kumar, DDMA" and log[0]["evidence"]["kind"] == "command_center_recommendation"
     assert log[0]["evidence"]["evidence"]  # the cited evidence is stored with the decision
     assert client.get(f"{P}/audit/integrity").json()["status"] == "valid"
-    assert client.get(f"{P}/ops/briefs", headers=auth).json()[0]["recommendations"][0]["status"] == "accepted"
+    assert client.get(f"{P}/ops/briefs").json()[0]["recommendations"][0]["status"] == "accepted"
 
 
 def _collect():

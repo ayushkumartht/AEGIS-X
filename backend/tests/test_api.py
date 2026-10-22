@@ -6,15 +6,12 @@ from aegis.api.main import create_app
 from aegis.settings import get_settings
 
 P = "/api/v1"
-ADMIN = {"email": "admin@example.org", "password": "correct horse battery"}
 
 
 @pytest.fixture
 def client(tmp_path, monkeypatch):
     monkeypatch.setenv("LLM_PROVIDER", "none")
     monkeypatch.setenv("AEGIS_DB_URL", f"sqlite:///{(tmp_path / 'api.db').as_posix()}")
-    monkeypatch.setenv("AEGIS_ADMIN_EMAIL", ADMIN["email"])
-    monkeypatch.setenv("AEGIS_ADMIN_PASSWORD", ADMIN["password"])
     monkeypatch.setenv("AEGIS_RATE_LIMIT_PER_MIN", "0")
     get_settings.cache_clear()
     context.reset()
@@ -24,11 +21,6 @@ def client(tmp_path, monkeypatch):
     get_settings.cache_clear()
     context.reset()
     limits.reset()
-
-
-def login(client, creds=ADMIN) -> dict:
-    token = client.post(f"{P}/auth/login", json=creds).json()["token"]
-    return {"Authorization": f"Bearer {token}"}
 
 
 def test_health_and_districts(client):
@@ -113,59 +105,34 @@ def test_explain_falls_back_to_template_without_an_llm(client):
 
 
 def test_field_report_changes_beliefs_and_the_forecast_space(client):
-    body = {"text": "Main bridge is under water", "source_type": "field_team"}
-    assert client.post(f"{P}/reports", json=body).status_code == 401
-    r = client.post(f"{P}/reports", json=body, headers=login(client)).json()
+    body = {"text": "Main bridge is under water", "source_type": "field_team", "author": "Control room"}
+    r = client.post(f"{P}/reports", json=body).json()
     assert r["parsed"]["claim"] == "closed" and r["beliefs"]
+    assert client.get(f"{P}/districts/demo/reports").json()[0]["author"] == "Control room"
     conds = client.get(f"{P}/districts/demo/conditions").json()
     bridge = next(v for v in conds["variables"] if v["name"] == "bridge_open:b_main")
     assert bridge["p_true"] < 0.5 and "field report" in bridge["source"]
     assert len(client.get(f"{P}/districts/demo/reports").json()) == 1
 
 
-def test_decision_log_links_the_run(client):
+def test_decision_log_links_the_run_and_names_who_acted(client):
     run = client.post(f"{P}/simulate", json={"n_samples": 50, "seed": 3}).json()["run_id"]
-    body = {"action": "accept", "plan": {"start_hour": 3}, "run_id": run, "note": "ok", "author": "Someone Else"}
-    assert client.post(f"{P}/decisions", json=body).status_code == 401
-    auth = login(client)
-    assert client.post(f"{P}/decisions", json=body, headers=auth).status_code == 200
+    body = {"action": "accept", "plan": {"start_hour": 3}, "run_id": run, "note": "ok", "author": "A. Officer, Silchar EOC"}
+    assert client.post(f"{P}/decisions", json=body).status_code == 200
     log = client.get(f"{P}/decisions", params={"district": "demo"}).json()
     assert log[0]["action"] == "accept" and log[0]["run"]["seed"] == 3 and log[0]["plan"]["start_hour"] == 3
-    assert log[0]["author"] == f"Administrator <{ADMIN['email']}>"  # from the login, not the body
+    assert log[0]["author"] == "A. Officer, Silchar EOC"
+    anonymous = client.post(f"{P}/decisions", json={"action": "reject", "plan": {}}).status_code
+    assert anonymous == 200 and client.get(f"{P}/decisions").json()[0]["author"] == "Duty officer"  # the default name
     missing = {"action": "accept", "plan": {}, "run_id": 9999}
-    assert client.post(f"{P}/decisions", json=missing, headers=auth).status_code == 404
+    assert client.post(f"{P}/decisions", json=missing).status_code == 404
+    assert client.post(f"{P}/decisions", json={"action": "accept", "plan": {}, "author": ""}).status_code == 422
+    assert client.get(f"{P}/audit/integrity").json()["status"] == "valid"
 
 
-def test_login_roles_and_account_management(client):
-    assert client.post(f"{P}/auth/login", json={**ADMIN, "password": "wrong"}).status_code == 401
-    admin = login(client)
-    assert client.get(f"{P}/auth/me", headers=admin).json()["role"] == "admin"
-    new = {"email": "viewer@example.org", "name": "V", "role": "viewer", "password": "viewer-pass-1"}
-    uid = client.post(f"{P}/auth/users", json=new, headers=admin).json()["id"]
-    assert client.post(f"{P}/auth/users", json=new, headers=admin).status_code == 409
-    viewer = login(client, {"email": new["email"], "password": new["password"]})
-    assert client.get(f"{P}/auth/users", headers=viewer).status_code == 403
-    report = {"text": "Main bridge is under water"}
-    assert client.post(f"{P}/reports", json=report, headers=viewer).status_code == 403
-    client.patch(f"{P}/auth/users/{uid}", json={"role": "officer"}, headers=admin)
-    assert client.post(f"{P}/reports", json=report, headers=viewer).status_code == 200
-    client.patch(f"{P}/auth/users/{uid}", json={"active": False}, headers=admin)
-    assert client.get(f"{P}/auth/me", headers=viewer).status_code == 401
-    assert client.get(f"{P}/auth/me", headers={"Authorization": "Bearer forged.token"}).status_code == 401
-    me = client.get(f"{P}/auth/me", headers=admin).json()["id"]
-    assert client.patch(f"{P}/auth/users/{me}", json={"role": "viewer"}, headers=admin).status_code == 400
-    assert all("password_hash" not in u for u in client.get(f"{P}/auth/users", headers=admin).json())
-
-
-def test_command_center_overview_is_admin_only_and_counts_activity(client):
-    assert client.get(f"{P}/admin/overview").status_code == 401
-    client.post(f"{P}/simulate", json={"n_samples": 40})
-    o = client.get(f"{P}/admin/overview", headers=login(client)).json()
-    assert o["counts"]["run"] == 1 and o["counts"]["user"] == 1
-    assert o["activity"][-1]["runs"] == 1 and len(o["activity"]) == 14
-    demo = next(d for d in o["districts"] if d["id"] == "demo")
-    assert demo["totals"]["areas"] == 6 and o["recent_runs"][0]["summary"]["mean"] >= 0
-
+def test_there_is_no_login_and_no_account_endpoints(client):
+    for path in ("/auth/login", "/auth/me", "/auth/users", "/admin/overview"):
+        assert client.get(f"{P}{path}").status_code in (404, 405)
 
 def test_heavy_endpoints_are_rate_limited(client, monkeypatch):
     monkeypatch.setenv("AEGIS_RATE_LIMIT_PER_MIN", "2")
