@@ -8,11 +8,17 @@ const buttonVariants = cva(
   {
     variants: {
       variant: {
-        default: "bg-primary text-primary-foreground hover:bg-primary/90",
+        default: "bg-primary text-primary-foreground shadow-sm shadow-primary/25 hover:bg-primary/90 active:translate-y-px",
         destructive:
           "bg-destructive text-white hover:bg-destructive/90 focus-visible:ring-destructive/20 dark:bg-destructive/60 dark:focus-visible:ring-destructive/40",
         outline:
-          "border bg-background shadow-xs hover:bg-accent hover:text-accent-foreground dark:border-input dark:bg-input/30 dark:hover:bg-input/50",
+          "border bg-background shadow-xs hover:bg-accent hover:text-accent-foreground active:translate-y-px dark:border-input dark:bg-input/30 dark:hover:bg-input/50",
+        // Accept / go ahead
+        success: "bg-safe text-white shadow-sm shadow-safe/30 hover:brightness-95 active:translate-y-px",
+        // Reject / stop, quiet until hovered so it is not pressed by accident
+        danger: "border border-risk/40 bg-risk/10 text-risk hover:bg-risk hover:text-white active:translate-y-px",
+        // Secondary action inside a card
+        soft: "bg-primary/10 text-primary hover:bg-primary/15 active:translate-y-px",
         secondary:
           "bg-secondary text-secondary-foreground hover:bg-secondary/80",
         ghost:
