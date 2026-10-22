@@ -66,7 +66,18 @@ Done after this list was written (22 Oct): admin/officer login, Command Center (
 12. **Army/Police**: Army ke liye flood module extend (helicopter, engineers, pontoon, convoy routing). Police ke liye `domains/crowd` banana (abhi stub hai). `domains/fire` bhi stub hai.
 13. ~~Production auth/deploy~~: code ready; deploy steps tumhe karne hain (Render/Vercel account).
 
+## 4b. Command Center (22 Oct 2026, built)
+
+`/command`: India map, live official alerts (NDMA SACHET: IMD, CWC river gauges, state SDMAs; GDACS), 22 watched districts ka flood level (GloFAS river forecast vs 2/5/20-year floods), feed health, aur AI strategy brief (Accept/Reject, tamper-evident log). Detail: [command-center-plan.md](command-center-plan.md).
+
+- Local par live data ke liye `.env` mein `AEGIS_OPS_POLL=true` (abhi laga hai). Pehle refresh mein 1-5 minute lagte hain.
+- **Groq model badla**: `llama-3.3-70b-versatile` Groq par ab exist nahi karta (404), isliye pehle Explain button chupke se template par girta tha. Default ab `openai/gpt-oss-120b` hai. Model badalna ho to `.env` mein `LLM_MODEL=` (list: `GET https://api.groq.com/openai/v1/models`).
+- Brief ke do rang: "written by groq ..., checked against the evidence" (AI text guardrail se pass hua) ya "written by rules" (AI ka jawab guardrail ne reject kiya ya LLM off hai).
+- Brief ke liye officer/admin login chahiye; koi bhi district map aur alerts dekh sakta hai.
+
 ## 5. Demo script: simulation dikhana aur samjhana
+
+**Pehle Command Center (2 min):** `/command` kholo, mode (jaise Armed Forces) chuno, map par districts aur alerts dikhao, ek CWC gauge alert kholo (level vs danger level bar), Cachar par click karke "Open the evacuation console". Phir login karke "Generate brief" dabao: situation, actions (har ek ke saath evidence ids E1, E2...), Accept/Reject, aur neeche "Decision log: chain intact".
 
 Pehle servers: `.\scripts\dev.ps1` (ya jo already chal rahe hain). Browser: `http://localhost:5173/console/cachar`.
 

@@ -11,7 +11,7 @@ Read in this order.
 
 | 5 | [flood-final-status-and-demo.md](flood-final-status-and-demo.md) | **Latest status**: what is done, what is left, Groq setup, demo script. |
 | 6 | [fullstack-deployment-plan.md](fullstack-deployment-plan.md) | Going live: Vercel + Render, accounts, env vars. |
-| 7 | [command-center-plan.md](command-center-plan.md) | **Next**: the multi-district Command Center with live official alerts and an AI strategy advisor (flood first; crowd and fire later). |
+| 7 | [command-center-plan.md](command-center-plan.md) | The multi-district Command Center: live official alerts, district flood risk, AI strategy advisor, tamper-evident decisions. **Built** (flood; crowd and fire later). |
 
 Folders:
 - [decisions/](decisions) : short records of design decisions as they are made.

@@ -1,6 +1,6 @@
 # Command Center: final architecture and build plan
 
-Date: 22 Oct 2026. Status: **final**, build in progress (section 11 tracks it).
+Date: 22 Oct 2026. Status: **final, built** (C1 to C6 done on 22 Oct 2026; C7 needs the owner, see section 11).
 
 **What it is.** A separate dashboard at `/command`, the full version of what Dikshansh started: one screen for many districts, fed by **live official data** (NDMA SACHET alerts including CWC river gauges, GDACS, GloFAS river forecasts), with an **AI strategy advisor** that proposes actions using only that data and the AEGIS-X engine's own tested numbers. People decide; every decision is stored in a tamper-evident log. Flood is built first. Crowd and fire plug into the same design later.
 
@@ -185,13 +185,13 @@ Tests: CAP parsing on recorded XML (no network), Gumbel and exceedance on synthe
 
 | # | Phase | Done when | Status |
 |---|---|---|---|
-| C1 | Feeds: SACHET + GDACS parsers, store, poller, `/ops/feeds`, `/ops/events` | Today's alerts appear with severity and place; a failing feed shows as unavailable | building |
-| C2 | District risk: watched districts, river cell, return periods, exceedance, `/ops/districts` | Each watched district has a level with its numbers; Cachar's June 2022 history passes the 5-year flow | building |
-| C3 | Command Center page; admin moved to `/admin` | An officer sees India alerts and district levels and opens Cachar's console from it | building |
-| C4 | Advisor | Every number traces to evidence; LLM off still gives a brief; invented number rejected (test) | building |
-| C5 | Hash-chained decisions + evidence + `/audit/integrity` | Editing a stored row by hand is reported | building |
-| C6 | Console: Resources tab, `?tab=` | — | building |
-| C7 | Outside requests: IMD whitelisting, ReliefWeb appname, FIRMS key | — | needs the owner |
+| C1 | Feeds: SACHET + GDACS parsers, store, poller, `/ops/feeds`, `/ops/events` | Today's alerts appear with severity and place; a failing feed shows as unavailable | done |
+| C2 | District risk: watched districts, river cell, return periods, exceedance, `/ops/districts` | Each watched district has a level with its numbers; Cachar's June 2022 history passes the 5-year flow | done |
+| C3 | Command Center page; admin moved to `/admin` | An officer sees India alerts and district levels and opens Cachar's console from it | done |
+| C4 | Advisor | Every number traces to evidence; LLM off still gives a brief; invented number rejected (test) | done |
+| C5 | Hash-chained decisions + evidence + `/audit/integrity` | Editing a stored row by hand is reported | done |
+| C6 | Console: Resources tab, `?tab=` | — | done |
+| C7 | Outside requests: IMD whitelisting, ReliefWeb appname, FIRMS key | each source added behind the same feed-health contract | needs the owner |
 
 ## 12. Limits (shown in the UI)
 
