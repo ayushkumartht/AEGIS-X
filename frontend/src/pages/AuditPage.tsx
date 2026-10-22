@@ -1,8 +1,8 @@
 import { Link } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { api } from '@/api/client'
-import { AccountMenu } from '@/components/site/AccountMenu'
 import { Logo } from '@/components/site/Logo'
+import { OperatorChip } from '@/components/site/OperatorChip'
 import { Badge } from '@/components/ui/badge'
 import { fmtPct } from '@/lib/formatters'
 
@@ -18,7 +18,7 @@ export default function AuditPage() {
         <nav className="ml-auto flex items-center gap-4 text-sm text-muted-foreground">
           <Link to="/command" className="hover:text-foreground">Command Center</Link>
           <Link to="/console" className="hover:text-foreground">Evacuation console</Link>
-          <AccountMenu />
+          <OperatorChip />
         </nav>
       </header>
       <main className="mx-auto max-w-5xl px-6 py-6">

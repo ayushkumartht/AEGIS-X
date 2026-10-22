@@ -19,16 +19,10 @@ services:
         value: prod
       - key: AEGIS_DB_URL
         value: sqlite:////var/data/aegis.db
-      - key: AEGIS_SECRET_KEY
-        generateValue: true
       - key: AEGIS_CORS_ORIGINS
         sync: false          # your Vercel URL, e.g. https://aegis-x.vercel.app
       - key: AEGIS_CORS_ORIGIN_REGEX
         sync: false          # optional, e.g. https://aegis-x-.*\.vercel\.app
-      - key: AEGIS_ADMIN_EMAIL
-        sync: false
-      - key: AEGIS_ADMIN_PASSWORD
-        sync: false
       - key: LLM_PROVIDER
         value: groq
       - key: GROQ_API_KEY
