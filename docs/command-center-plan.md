@@ -1,195 +1,201 @@
-# Command Center: implementation plan (flood first; crowd and fire later)
+# Command Center: final architecture and build plan
 
-Date: 22 Oct 2026. Status: plan only, nothing built yet.
+Date: 22 Oct 2026. Status: **final**, build in progress (section 11 tracks it).
 
-**Goal.** A separate dashboard, in the spirit of what Dikshansh started: one screen that shows what is happening across many districts from **live official data**, and an **AI strategy advisor** that proposes what to do, using only that data and the AEGIS-X engine's own tested numbers. People decide. Flood is built first. Crowd and fire get slots in the design now and are built later.
+**What it is.** A separate dashboard at `/command`, the full version of what Dikshansh started: one screen for many districts, fed by **live official data** (NDMA SACHET alerts including CWC river gauges, GDACS, GloFAS river forecasts), with an **AI strategy advisor** that proposes actions using only that data and the AEGIS-X engine's own tested numbers. People decide; every decision is stored in a tamper-evident log. Flood is built first. Crowd and fire plug into the same design later.
 
-Reads with: [dikshansh-contributions-2026-10-20.md](archive/dikshansh-contributions-2026-10-20.md) (what he built), [final-implementation-plan.md](final-implementation-plan.md) (engine and flood console), [fullstack-deployment-plan.md](fullstack-deployment-plan.md) (hosting, accounts).
+Reads with: [archive/dikshansh-contributions-2026-10-20.md](archive/dikshansh-contributions-2026-10-20.md) (what he built), [final-implementation-plan.md](final-implementation-plan.md) (engine, flood console), [fullstack-deployment-plan.md](fullstack-deployment-plan.md) (hosting, accounts).
 
 ---
 
-## 1. What changes for the user
+## 1. Screens
 
-| Today | After this plan |
-|---|---|
-| `/console/:district`: test one plan for one district | unchanged: the deep-dive tool |
-| `/command`: admin-only system overview (runs, accounts) | moves to `/admin` |
-| (nothing) | **`/command`: the Command Center**: map of India, live alerts, flood risk per watched district, AI strategy brief, one click into the district console |
+| Route | Who | What |
+|---|---|---|
+| `/command` | everyone (AI advisor: officer, admin) | **Command Center**: India map with live alerts and district flood risk, alert list, district risk table, feed health, AI strategy brief with Accept/Reject, operating-mode selector, place search |
+| `/console/:district` | everyone (decisions: officer, admin) | the existing deep-dive flood tool; opened from the Command Center |
+| `/admin` | admin | system overview and accounts (was `/command` before) |
+| `/audit` | everyone | decision log, now with "chain intact" check |
 
-The Command Center is open to `officer` and `admin`; `viewer` can see it read-only. Visitors without an account see a public version without the AI advisor (it costs LLM calls).
+## 2. Live data (checked from this machine on 22 Oct 2026)
 
-## 2. Real data the dashboard will use (checked 22 Oct 2026)
-
-Every feed below was called from this machine on 22 Oct 2026.
-
-| Feed | What it gives | Status | Use |
+| Feed | What it gives | Status | How it is used |
 |---|---|---|---|
-| **NDMA SACHET** CAP alerts, `sachet.ndma.gov.in/cap_public_website/rss/rss_india.xml` + per-alert CAP XML | Official alerts from IMD, CWC and state SDMAs: event (flood, heavy rain, lightning...), severity, urgency, certainty, effective/expiry time, sender, affected area | ✅ 200, 100 live items | Main alert feed. Titles are often in regional languages; the CAP XML has an `en-IN` info block, use that. |
-| **GDACS** event API (`gdacs.org/gdacsapi/...?eventlist=FL&country=India`) | International flood/cyclone/earthquake events with alert level (green/orange/red) and GeoJSON | ✅ 200 | Large-event layer, cross-check |
-| **Open-Meteo Flood API** (GloFAS) | River discharge forecast, any point in India, ensemble | ✅ 200 (already used for Cachar) | **Flood risk per watched district** (section 4) |
-| **Open-Meteo Forecast / Ensemble** | Rain forecast, any point | ✅ 200 (already used) | Rain risk per district |
-| **Open-Meteo Archive / GloFAS history** | 16+ years of discharge | ✅ (already used for calibration) | Return-period thresholds per district |
-| OpenStreetMap Overpass / Nominatim | Roads, bridges, shelters, place search | ✅ (already used) | District build, map search |
-| Cachar DDMA flood reports (PDF) | Camps, inmates, damage per revenue circle | ✅ manual (already used) | Shelter list; later a parser for daily reports |
-| IMD district warnings API | District nowcasts and warnings | ❌ 401 "IP needs to be whitelisted" | Apply to IMD for whitelisting the server IP; SACHET already carries IMD alerts meanwhile |
-| CWC flood forecast (`ffs.india-water.gov.in`) | River gauge levels vs danger level | ⚠️ timed out today | Add with retry and cache; show "unavailable" honestly when down |
-| ReliefWeb API v2 | Situation reports | ⚠️ 403 until an approved `appname` is requested | Request an appname (free) |
-| NASA FIRMS | Active fires from satellite | ⚠️ needs a free MAP_KEY | **Fire module, later** |
+| **NDMA SACHET** RSS + CAP 1.2 XML per alert | Official alerts from IMD, **CWC**, state SDMAs: event, severity, urgency, certainty, effective/expiry, English headline and description, area text, LGD district code | ✅ 100 live items | Main alert feed. **CWC flood alerts carry the gauge's water level, warning level and danger level** in the description and the gauge position in `altitude`/`ceiling` (lat, lon). Polygon URLs return 403, so position comes from the gauge, the watched-district names, or geocoding the area text. |
+| **GDACS** event API | International flood/cyclone events for India, alert level, GeoJSON point | ✅ | Big-event layer |
+| **Open-Meteo Flood API** (GloFAS v4) | River discharge: 7-day ensemble forecast and a multi-decade daily history at any point | ✅ | District flood risk (section 4) |
+| Open-Meteo Ensemble | Rain forecast | ✅ | Rain shown beside the river risk |
+| OSM Nominatim | Place search, area-text geocoding | ✅ (1 request/s, cached) | Search box, locating alerts |
+| IMD district API | Nowcasts | ❌ IP whitelisting needed | IMD alerts already reach us through SACHET |
+| CWC FFS site | Gauge dashboard | ⚠️ timed out | Not needed: CWC alerts come through SACHET |
+| ReliefWeb v2 | Situation reports | ⚠️ needs an approved appname | Later |
+| NASA FIRMS | Active fires | ⚠️ needs a free key | Fire module, later |
 
-Rule: a layer whose feed is down shows "unavailable since <time>", never old data presented as current, and never invented data.
+Rule: a feed that fails shows "unavailable since <time>" and its last data is labelled with its age. Nothing is invented to fill a gap.
 
 ## 3. Architecture
 
 ```
-            ┌──────────── feeds (poll + cache) ────────────┐
-SACHET CAP ─┤ alerts.py   → Event rows (normalised)        │
-GDACS      ─┤ gdacs.py    → Event rows                     │
-Open-Meteo ─┤ risk.py     → RiskIndicator per district     │──► SQLite: event, indicator, brief,
-CWC (later)─┘                                              │    recommendation, decision (hash-chained)
-                                                           │
-Hazard plugins:  flood (built)  | crowd (slot) | fire (slot)
-   each gives: feeds it reads, indicators, a district model for the engine, strategy tools
-                                                           │
-AI strategy advisor (LLM with tools, section 5) ───────────►│ reads only tool results
-                                                           │
-API /api/v1/ops/* ─► Command Center page (/command)  ─► "Open district" → /console/:district
+                 ┌───────────────── backend/aegis/ops ─────────────────┐
+ SACHET RSS ───► │ feeds/sachet.py  parse CAP (en-IN), hazard, place   │
+ GDACS API  ───► │ feeds/gdacs.py                                       │──► store.py (SQLite)
+ GloFAS     ───► │ risk.py   return periods + ensemble exceedance       │     ops_event
+                 │ districts.py   watched districts, river-cell search  │     ops_indicator
+                 │ poller.py      background refresh, feed health       │     ops_feed
+                 │ hazards.py     flood ✔ | crowd ✖ | fire ✖ (slots)    │     ops_brief
+                 │ advisor.py     evidence → LLM brief → guardrail      │     ops_recommendation
+                 └──────────────────────────────────────────────────────┘
+                                   │                          decision (hash-chained)
+ engine (Monte Carlo, Red Team, VOI, optimiser) on built districts ◄──┘
+                                   │
+ api/routers/ops.py  /api/v1/ops/*  ──► frontend /command  ──► /console/:district
 ```
 
-### 3.1 Hazard plugin contract (so crowd and fire slot in later)
+### 3.1 Hazard plugins
 
 ```python
-class Hazard(Protocol):
-    id: str                                  # "flood", later "crowd", "fire"
-    def feeds(self) -> list[Feed]: ...       # which feeds produce its events
-    def indicators(self, district) -> list[RiskIndicator]: ...   # live risk numbers
-    def model_for(self, district) -> Model | None: ...           # engine model if the district is built
-    def strategy_tools(self) -> list[Tool]: ...                  # what the AI advisor may call
+@dataclass
+class Hazard:
+    id: str            # "flood" | "crowd" | "fire"
+    name: str
+    enabled: bool
+    keywords: tuple    # words in an alert's event/headline that belong to this hazard
+    note: str          # shown when disabled: what data it still needs
 ```
 
-Flood implements all four now. Crowd and fire are registered as **disabled** plugins, so the UI shows them as "coming later" instead of empty panels.
+Flood is enabled. Crowd and fire are registered **disabled**, so the screen shows "coming later: needs <data>" and alerts that mention fire are still collected under that hazard.
 
-### 3.2 Data model (new tables)
+### 3.2 Tables
 
-| Table | Fields | Notes |
-|---|---|---|
-| `event` | id, hazard, source (sachet/gdacs/cwc), source_id, title_en, severity, urgency, certainty, sender, area_desc, geometry (GeoJSON), effective, expires, fetched_at, raw_url | Deduplicated by (source, source_id). Expired alerts kept for history. |
-| `indicator` | district, hazard, name, value, unit, threshold, level (normal/watch/warning/severe), computed_at, inputs (JSON) | Recomputed on each poll |
-| `brief` | id, created_at, scope (all-India/state/district), inputs (JSON: ids of events, indicators, runs), text sections, source (llm/rules), model | Every brief records exactly what it was built from |
-| `recommendation` | id, brief_id, district, action, rationale, evidence (run ids, numbers), status (proposed/accepted/rejected), decided_by | Accept/reject goes into the hash-chained decision log |
-| `watched_district` | id, name, state, lat, lon, river point, built (has a scenario?) | Starts with Cachar (built) + flood-prone districts from the CWC/ASDMA lists (risk indicators only until built) |
+| Table | Key fields |
+|---|---|
+| `ops_event` | `uid` (source:id), source, hazard, event, severity, urgency, certainty, sender, state, area, headline, description, lat, lon, place_method, district_id, effective, expires, sent, gauge (JSON: level, warning, danger, trend), url, fetched_at |
+| `ops_indicator` | district_id, computed_at, forecast_date, q_2/q_5/q_20, p_2/p_5/p_20 (share of ensemble members exceeding), peak_day, peak_median, level, inputs |
+| `ops_feed` | name, last_attempt, last_success, last_error, items |
+| `ops_brief` | id, created_at, scope, mode, evidence (JSON), sections (JSON), source (llm/rules), model, author |
+| `ops_recommendation` | id, brief_id, district_id, action, why, gain, cost, risk, status, decided_by, decision_id |
+| `decision` (existing) | + `evidence_json`, `previous_hash`, `decision_hash` |
 
-### 3.3 Polling
+### 3.3 Refresh
 
-A background task in the API process (asyncio, every 10 min for SACHET/GDACS, every 3 h for Open-Meteo), through the existing `cached_json` cache and rate limits. On Render one instance runs it; a `last_success` per feed is stored and shown.
+`poller.py` runs inside the API process (asyncio task started at app start when `AEGIS_OPS_POLL=true`): SACHET and GDACS every 10 minutes, GloFAS indicators every 3 hours. Each CAP alert is fetched once and cached forever (alerts do not change; updates arrive as new alerts). `POST /ops/refresh` (officer, admin) forces a refresh. On Render a single instance runs the poller.
 
-## 4. Flood risk per district (real numbers, no guessing)
+## 4. District flood risk
 
-For each watched district:
-1. **Return periods from history.** From 16+ years of GloFAS discharge at the district's river point (same method as `calibrate_from_record`), compute the 2-, 5- and 20-year flood discharges.
-2. **Forecast.** Today's GloFAS ensemble for the next 7 days.
-3. **Indicator.** Share of ensemble members that exceed each return period, and the day it happens: e.g. "40% chance of passing the 5-year flood on 25 Oct".
-4. **Level.** normal / watch (2-yr likely) / warning (5-yr likely) / severe (20-yr likely). The thresholds are written in config and shown on screen.
-5. **Alerts.** Active SACHET flood and heavy-rain alerts whose area matches the district raise the level by one step and are listed beside it.
+Watched districts live in `data/ops/watched_districts.yaml` (flood-prone districts of Assam, Bihar, UP, West Bengal, Odisha, Kerala, J&K, Maharashtra, Andhra Pradesh; Cachar is the built one).
 
-Districts with a built scenario (Cachar) also show the engine's last tested plan result ("current plan evacuates 82% on a bad day").
+1. **River cell.** GloFAS is a ~5 km grid; a town's coordinates may sit on a cell without the main river. `districts.py` tries a 3×3 neighbourhood (0.05° steps) and keeps the cell with the largest mean flow over one year. The choice is cached and shown.
+2. **Return periods.** From the daily history (2005 to last year), annual maxima → Gumbel fit (method of moments) → the 2-, 5- and 20-year flood flows. Fewer than 10 years of data: no indicator, said so.
+3. **Forecast.** GloFAS 7-day ensemble; for each return period, the share of members that exceed it on any day, and the day of the highest median flow.
+4. **Level.** severe: P(20-yr) ≥ 30% · warning: P(5-yr) ≥ 30% · watch: P(2-yr) ≥ 30% · else normal. Thresholds are in the same YAML and printed on screen.
+5. **Alerts.** Active SACHET alerts of the flood hazard located in the district are listed beside it; a CWC gauge above its danger level raises the level to at least "warning".
 
 ## 5. AI strategy advisor
 
-The LLM does not decide and does not make up numbers. It works like a staff officer with tools: it can only see what the tools return, and every number in its answer must come from a tool result (the existing `numbers_are_grounded` guardrail, extended to tool outputs).
+**How it works: evidence first, then words.** The advisor does not let the LLM browse or decide. It:
 
-### 5.1 Tools (flood)
+1. **Collects evidence** deterministically: active flood alerts (with CWC gauge numbers), district risk indicators, and for districts with a built scenario at watch level or above: the engine's result for the baseline plan, its Red Team (failure rate, single points of failure) and the top "check first" item. Each piece of evidence gets an id (`E1`, `E2`...).
+2. **Writes the brief** with the LLM (Groq), asking for JSON with fixed sections, every statement citing evidence ids.
+3. **Checks** it: valid JSON, every cited id exists, every number appears in the evidence (`numbers_are_grounded`). Fails → the same sections are filled by rules from the evidence.
 
-| Tool | Returns | Backed by |
-|---|---|---|
-| `get_alerts(state?, district?)` | active official alerts | `event` table |
-| `get_flood_risk(district)` | indicators from section 4 | `indicator` table |
-| `get_district_assets(district)` | shelters (with how each was located), boats, bridges, population | scenario + provenance |
-| `test_plan(district, plan)` | Monte Carlo summary of a plan | engine `simulate` |
-| `red_team(district, plan)` | failure rate, single points of failure, failure conditions | engine Red Team |
-| `what_to_check(district, plan)` | VOI ranking | engine VOI |
-| `suggest_plans(district)` | Pareto options (safest / best average / leanest) | engine NSGA-II |
+Mode (Armed Forces, Police, CAPF/Response, Disaster Response, Emergency Management, Administration) changes the wording and which actions come first (e.g. Armed Forces: boats, airlift, engineers; Administration: orders, camps, relief), never the numbers.
 
-Groq supports tool calling. Each advisor session is capped at a fixed number of tool calls and engine samples, so it costs a known amount and cannot overload the server.
+**Brief sections:** situation · where it is worst · recommended actions (≤ 5; each: action, why with evidence ids, what it gains, what it costs, what could break it) · check first · uncertainty (estimates, feeds down).
 
-### 5.2 Output (structured, every time)
+**Decisions:** each recommendation has Accept / Reject. The decision is stored in the decision log with the brief's evidence, hash-chained to the previous decision (SHA-256 over the row plus the previous hash). `/audit` shows "chain intact" or the first row that does not verify. Limit, stated on screen: without an outside anchor, deleting the newest rows cannot be detected.
 
-1. **Situation**: what the alerts and indicators say, each line citing its source.
-2. **Where it is worst**: districts ranked by indicator level and people exposed.
-3. **Recommended actions**: up to 5, each with *why* (the tool result), *what it buys* (engine numbers), *what it costs* (boats, false alarm), *what could break it* (Red Team).
-4. **Check first**: the VOI top items.
-5. **Uncertainty**: which inputs are estimates (from provenance), which feeds were down.
+Cost and load: one brief = one LLM call and at most two engine runs of ≤ 300 futures; rate-limited like other heavy endpoints.
 
-If the LLM is off or its answer fails the guardrail, the same structure is filled by rules from the tool results (no AI text, still useful).
+## 6. Dikshansh's work: what is taken over
 
-### 5.3 Human decision
+| His feature | Here |
+|---|---|
+| India-wide MapLibre map: heat of events by severity, points, layer toggles, legend, popups | ✅ on live `ops_event` / `ops_indicator` instead of his synthetic JSON |
+| Operating modes (Armed Forces, Police, CAPF/Response, Disaster Response, Emergency Management, Administration) | ✅ filters + advisor wording |
+| Situation brief with rule-based fallback and grounding | ✅ section 5, with engine evidence |
+| Place search (Nominatim proxy, cached, 1 request/s) | ✅ `GET /ops/search` |
+| Week-over-week activity comparison | ✅ alert counts this week vs last week, labelled "reported alerts, not a risk measure" |
+| Hash-chained audit + integrity check | ✅ |
+| Evidence stored with every decision | ✅ console and Command Center |
+| Resources tab (boats assigned vs available) | ✅ console |
+| Console tab in the URL (`?tab=`) | ✅ console |
+| Provenance per input (observed / derived / assumed) | ✅ already in the Situation tab; also `GET /districts/{d}/provenance` |
+| Synthetic demo events | ❌ replaced by live feeds |
+| His auth system | ❌ ours is in place |
+| OpenTopoData, `.runtimepackages` dump | ❌ |
 
-Each recommendation has Accept / Edit / Reject. The decision is saved with its evidence (the tool results it used) in the **hash-chained** audit log (Dikshansh's design: each row's SHA-256 includes the previous row's hash, and `/audit` shows "chain intact" or the first broken row).
-
-## 6. What is ported from Dikshansh's work
-
-| His feature | Port? | How |
-|---|---|---|
-| India-wide MapLibre map with heatmap, layer toggles, legend, popups | ✅ | Rebuild on the real `event` and `indicator` tables, not his synthetic JSON |
-| Operating-mode selector (Armed Forces, Police, CAPF, Disaster Response, EM, Administration) | ✅ | Mode sets default filters and the advisor's phrasing; flood is the only active hazard for now |
-| Situation brief with rule-based fallback and grounding | ✅ | Becomes section 5 (with tools) |
-| Map place search (Nominatim proxy, cached, 1 req/s) | ✅ | `GET /ops/search` |
-| Provenance (observed / derived / assumed) | ✅ | Extend the Situation tab sources list to an API `GET /districts/{d}/provenance` |
-| Hash-chained audit log + integrity check | ✅ | Section 5.3 |
-| Evidence captured with every decision | ✅ | Console decisions too |
-| Resources tab (boats assigned vs available) | ✅ | Console |
-| Console tab in the URL (`?tab=redteam`) | ✅ | Console |
-| Synthetic `demo_events.json` | ❌ | Replaced by live SACHET/GDACS. A labelled "exercise mode" with recorded past alerts can come later for drills |
-| His auth system | ❌ | Ours is already built |
-| OpenTopoData elevation | ❌ | Not needed |
-| `.runtimepackages` dump commit | ❌ | Never |
-
-## 7. API (new, under `/api/v1/ops`)
+## 7. API (`/api/v1/ops`)
 
 | Method | Path | Who | Returns |
 |---|---|---|---|
-| GET | `/ops/feeds` | all | each feed: last success, last error, item count |
-| GET | `/ops/events` | all | filtered events + GeoJSON + counts (filters: hazard, severity, state, district, since) |
-| GET | `/ops/districts` | all | watched districts with indicators and level |
-| GET | `/ops/districts/{id}/risk` | all | indicator detail with ensemble numbers |
-| POST | `/ops/brief` | officer, admin | runs the advisor; returns the structured brief and its recommendations |
-| GET | `/ops/briefs` | officer, admin | past briefs |
-| POST | `/ops/recommendations/{id}/decision` | officer, admin | accept / edit / reject, hash-chained |
-| GET | `/ops/search?q=` | all | place search (India) |
-| GET | `/audit/integrity` | admin | hash-chain check |
+| GET | `/ops/hazards` | all | hazard plugins and whether enabled |
+| GET | `/ops/feeds` | all | per feed: last success/attempt/error, items |
+| GET | `/ops/events` | all | events (filters: hazard, severity, state, active, days) + GeoJSON + counts + week-over-week |
+| GET | `/ops/districts` | all | watched districts with latest indicator, level, active alerts |
+| POST | `/ops/refresh` | officer, admin | refresh feeds now |
+| POST | `/ops/brief` | officer, admin | build a brief (body: mode, scope) |
+| GET | `/ops/briefs` | officer, admin | recent briefs |
+| POST | `/ops/recommendations/{id}/decision` | officer, admin | accept / reject (hash-chained) |
+| GET | `/ops/search?q=` | all | place search in India |
+| GET | `/audit/integrity` | all | chain check |
 
 ## 8. Frontend
 
-- `pages/CommandCenterPage.tsx` (new, at `/command`): mode selector · feed health strip · map (alerts, district risk, built districts) · district risk list · AI brief panel with Accept/Reject per recommendation · "Open console" per district.
-- `components/ops/`: `OpsMap.tsx`, `FeedHealth.tsx`, `RiskList.tsx`, `BriefPanel.tsx`, `ModeSelector.tsx`, `PlaceSearch.tsx`.
-- Current admin page moves to `pages/AdminPage.tsx` at `/admin`.
-- Console: `ResourcesTab`, `?tab=` in the URL, evidence capture in `DecisionBar`.
+```
+frontend/src/
+  pages/CommandCenterPage.tsx      new /command
+  pages/AdminPage.tsx              old Command Center, now /admin
+  features/ops/
+    OpsMap.tsx                     MapLibre: alerts (severity), district risk, built districts, search pin
+    FeedHealth.tsx                 one chip per feed
+    AlertList.tsx                  filterable alert list (CWC gauges show level vs danger)
+    DistrictRisk.tsx               table: level, P(5-yr), peak day, alerts, "Open console"
+    BriefPanel.tsx                 AI brief with evidence chips and Accept/Reject
+    ModeSelector.tsx, PlaceSearch.tsx
+  features/plan/ResourcesTab.tsx   console
+```
 
-## 9. Phases
+## 9. Folder and file plan (backend)
 
-| # | Phase | Done when |
+```
+backend/aegis/ops/
+  __init__.py
+  hazards.py        registry (flood on; crowd, fire off)
+  feeds/sachet.py   RSS + CAP parse, hazard + place, CWC gauge numbers
+  feeds/gdacs.py
+  districts.py      watched districts, river cell search
+  risk.py           Gumbel return periods, ensemble exceedance, level
+  store.py          ops_* tables
+  poller.py         refresh loop + feed health
+  advisor.py        evidence, LLM brief, guardrail, rule fallback
+backend/aegis/api/routers/ops.py
+data/ops/watched_districts.yaml
+```
+
+Tests: CAP parsing on recorded XML (no network), Gumbel and exceedance on synthetic series, poller failure → feed marked unavailable, advisor rejecting an LLM answer with an invented number, hash-chain detects an edited row, API role checks.
+
+## 10. Crowd and fire (later)
+
+| Hazard | Data still needed | Model |
 |---|---|---|
-| C1 | Feeds: SACHET CAP parser (English info block, area), GDACS, poller, `event` table, `/ops/feeds`, `/ops/events` | Live alerts from today appear with correct severity and area; a feed outage shows as "unavailable", tested with a recorded failure |
-| C2 | Flood risk: watched-district list, return periods from history, ensemble exceedance, `indicator` table, `/ops/districts` | Cachar's indicator for June 2022 (replayed from history) reaches "severe" before the 2022 peak; today's levels match the GloFAS numbers |
-| C3 | Command Center page: map, mode selector, risk list, feed health, place search; admin page moved to `/admin` | An officer sees all-India alerts and district levels on one screen and opens Cachar's console from it |
-| C4 | AI advisor: tool-calling loop on Groq, caps, grounding on tool outputs, rule-based fallback, `brief` + `recommendation` tables | Every number in a brief traces to a tool result; with the LLM off the brief still fills from rules; a test feeds a fake LLM answer with an invented number and sees it rejected |
-| C5 | Decisions: hash-chained audit, evidence capture, `/audit/integrity`, Accept/Reject on recommendations | Editing a stored decision row by hand makes `/audit/integrity` report that row |
-| C6 | Console ports: Resources tab, `?tab=` URL, provenance API | — |
-| C7 | Requests to outside bodies: IMD IP whitelisting, ReliefWeb appname; add CWC when reachable | Each source is added behind the same feed-health contract |
+| Fire | NASA FIRMS key; Open-Meteo wind/humidity (works); OSM land use (works) | spread + evacuation on the road graph |
+| Crowd (police) | event schedules, venue gates from OSM (works), live counts from a partner | flow through gates and choke points |
 
-C1 to C5 is the core; C6 and C7 can run in parallel.
+## 11. Build order and status
 
-## 10. Crowd and fire (later, design slots only)
-
-| Hazard | Likely real data | Engine model | Status |
+| # | Phase | Done when | Status |
 |---|---|---|---|
-| Fire | NASA FIRMS active fires (free key), Open-Meteo wind/humidity, OSM land use | spread + evacuation on the same road graph | plugin registered, disabled |
-| Crowd (police) | event schedules, OSM venues/gates, transit timetables; live counts need a partner (police, venue, telecom) | flow through gates and choke points | plugin registered, disabled |
+| C1 | Feeds: SACHET + GDACS parsers, store, poller, `/ops/feeds`, `/ops/events` | Today's alerts appear with severity and place; a failing feed shows as unavailable | building |
+| C2 | District risk: watched districts, river cell, return periods, exceedance, `/ops/districts` | Each watched district has a level with its numbers; Cachar's June 2022 history passes the 5-year flow | building |
+| C3 | Command Center page; admin moved to `/admin` | An officer sees India alerts and district levels and opens Cachar's console from it | building |
+| C4 | Advisor | Every number traces to evidence; LLM off still gives a brief; invented number rejected (test) | building |
+| C5 | Hash-chained decisions + evidence + `/audit/integrity` | Editing a stored row by hand is reported | building |
+| C6 | Console: Resources tab, `?tab=` | — | building |
+| C7 | Outside requests: IMD whitelisting, ReliefWeb appname, FIRMS key | — | needs the owner |
 
-Decide data partners before building either, because without a live data source they would run on assumptions only.
+## 12. Limits (shown in the UI)
 
-## 11. Limits to state openly
-
-- The AI advisor suggests; it never sends alerts or orders.
-- District risk levels come from a global model (GloFAS ~5 km); local drainage and embankment breaches are not in it.
-- SACHET areas are as precise as each sender writes them; some are whole districts.
-- Feeds can go down; the screen shows when, and old data is labelled with its time.
+- The advisor suggests; it never sends alerts or orders.
+- District risk comes from a global model (GloFAS, ~5 km); local drainage and embankment breaches are not in it.
+- Alert positions are as precise as each sender writes them.
+- Feeds go down; the screen shows when.

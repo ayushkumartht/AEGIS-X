@@ -1,0 +1,38 @@
+# Districts the Command Center watches. Flood-prone districts on India's major flood rivers
+# (Brahmaputra, Barak, Ganga, Kosi, Gandak, Mahanadi, Godavari, Krishna, Jhelum, Rapti).
+# lat/lon: the district headquarters town; the river cell used for GloFAS is searched around it
+# (aegis/ops/districts.py). `console`: the id of a built AEGIS-X scenario, if there is one.
+#
+# Risk level thresholds (share of GloFAS ensemble members that exceed a flood flow in 7 days):
+levels:
+  probability: 0.3        # a level applies when at least this share of members exceed its flow
+  severe_return_years: 20
+  warning_return_years: 5
+  watch_return_years: 2
+history:
+  start: "2005-01-01"
+  min_years: 10
+
+districts:
+  - {id: cachar, name: Cachar (Silchar), state: Assam, river: Barak, lat: 24.83, lon: 92.78, console: cachar}
+  - {id: karimganj, name: Karimganj, state: Assam, river: Kushiyara, lat: 24.87, lon: 92.36}
+  - {id: hailakandi, name: Hailakandi, state: Assam, river: Katakhal, lat: 24.68, lon: 92.56}
+  - {id: kamrup_metro, name: Kamrup Metro (Guwahati), state: Assam, river: Brahmaputra, lat: 26.19, lon: 91.75}
+  - {id: goalpara, name: Goalpara, state: Assam, river: Brahmaputra, lat: 26.17, lon: 90.62}
+  - {id: barpeta, name: Barpeta, state: Assam, river: Beki, lat: 26.32, lon: 91.00}
+  - {id: morigaon, name: Morigaon, state: Assam, river: Brahmaputra, lat: 26.25, lon: 92.34}
+  - {id: lakhimpur, name: Lakhimpur, state: Assam, river: Subansiri, lat: 27.24, lon: 94.10}
+  - {id: dhemaji, name: Dhemaji, state: Assam, river: Brahmaputra, lat: 27.48, lon: 94.58}
+  - {id: dibrugarh, name: Dibrugarh, state: Assam, river: Brahmaputra, lat: 27.48, lon: 94.91}
+  - {id: supaul, name: Supaul, state: Bihar, river: Kosi, lat: 26.12, lon: 86.60}
+  - {id: darbhanga, name: Darbhanga, state: Bihar, river: Bagmati, lat: 26.15, lon: 85.90}
+  - {id: muzaffarpur, name: Muzaffarpur, state: Bihar, river: Burhi Gandak, lat: 26.12, lon: 85.39}
+  - {id: gopalganj, name: Gopalganj, state: Bihar, river: Gandak, lat: 26.47, lon: 84.44}
+  - {id: patna, name: Patna, state: Bihar, river: Ganga, lat: 25.61, lon: 85.14}
+  - {id: bhagalpur, name: Bhagalpur, state: Bihar, river: Ganga, lat: 25.25, lon: 86.98}
+  - {id: gorakhpur, name: Gorakhpur, state: Uttar Pradesh, river: Rapti, lat: 26.76, lon: 83.37}
+  - {id: malda, name: Malda, state: West Bengal, river: Mahananda, lat: 25.00, lon: 88.14}
+  - {id: cuttack, name: Cuttack, state: Odisha, river: Mahanadi, lat: 20.46, lon: 85.88}
+  - {id: east_godavari, name: East Godavari (Rajahmundry), state: Andhra Pradesh, river: Godavari, lat: 17.00, lon: 81.78}
+  - {id: kolhapur, name: Kolhapur, state: Maharashtra, river: Panchganga, lat: 16.70, lon: 74.24}
+  - {id: srinagar, name: Srinagar, state: Jammu and Kashmir, river: Jhelum, lat: 34.08, lon: 74.80}
