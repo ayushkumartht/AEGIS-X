@@ -154,6 +154,78 @@ def test_actions_without_anything_at_watch_level_are_rejected(db):
     assert advisor.validate(reply, ev, {"cachar"}) is None
 
 
+# ---------------------------------------------------------------- exercise scenario
+
+
+def _live(level="normal"):
+    """A live indicator with real-looking flood flows for every watched district."""
+    return {d.id: {**_indicator(level, exceed5=0.0), "level": level, "exceed": {"2": 0.0, "5": 0.0, "20": 0.0},
+                   "flows": {"2": 1600.0 + i, "5": 2100.0 + i, "20": 2700.0 + i}}
+            for i, d in enumerate(watch.load_config().districts)}
+
+
+def test_exercise_scenario_is_labelled_complete_and_plausible(db):
+    from aegis.ops import exercise
+    inds = exercise.indicators(_live())
+    levels = {k: v["level"] for k, v in inds.items()}
+    assert levels["cachar"] == "severe" and levels["karimganj"] == "warning" and levels["hailakandi"] == "watch"
+    assert levels["patna"] == "normal"  # districts outside the scenario keep their live level
+    c = inds["cachar"]
+    assert c["simulated"] and c["exceed"]["20"] > 0.3 and c["peak_median"] > c["flows"]["20"]  # severe: past the 20-year flood
+    assert inds["karimganj"]["exceed"]["5"] > 0.3 > inds["karimganj"]["exceed"]["20"]
+    rows = exercise.events()
+    assert all(e["uid"].startswith("exercise:") and e["source"] == exercise.SOURCE for e in rows)
+    assert all(e["lat"] is not None for e in rows) and any(e["gauge"] for e in rows)
+    cachar_gauge = next(e for e in rows if e["uid"] == "exercise:cwc-barak-annapurnaghat")
+    assert cachar_gauge["gauge"]["level_m"] > cachar_gauge["gauge"]["danger_m"]  # above danger, as a severe flood would be
+    assert "0.43 m above its Danger Level of 21.43 m" in cachar_gauge["description"]
+    active = exercise.filter_events(rows, hazard="flood", active=True)
+    assert len(active) == len(rows) and active[0]["sent"] >= active[-1]["sent"]
+    assert exercise.filter_events(rows, state="bihar") and not exercise.filter_events(rows, hazard="fire")
+
+
+def test_exercise_is_per_viewer_and_never_mixed_with_live_data(db, monkeypatch):
+    seed("normal")
+    c = TestClient(create_app())
+    live = c.get(f"{P}/ops/events").json()
+    assert live["exercise"] is False and live["counts"]["total"] == 1 and live["events"][0]["uid"] == "sachet:1"
+    sim = c.get(f"{P}/ops/events", params={"exercise": True}).json()
+    assert sim["exercise"] and sim["counts"]["total"] >= 10 and all(e["uid"].startswith("exercise:") for e in sim["events"])
+    assert sim["counts"]["located"] == sim["counts"]["total"]
+    again = c.get(f"{P}/ops/events").json()
+    assert again["counts"]["total"] == 1  # asking for the exercise changed nothing for anyone else
+    feeds = c.get(f"{P}/ops/feeds", params={"exercise": True}).json()
+    assert feeds["exercise"] and feeds["feeds"][0]["name"] == "SIMULATED EXERCISE"
+    d = c.get(f"{P}/ops/districts", params={"exercise": True}).json()["districts"]
+    assert d[0]["level"] == "severe" and d[0]["id"] == "cachar" and any(x["alerts"] for x in d[:3])
+
+
+def test_exercise_brief_says_it_is_simulated_and_decisions_are_flagged(db, monkeypatch):
+    store.add_indicator("cachar", "normal", _indicator("normal", 0.0))
+    monkeypatch.setattr(advisor, "engine_facts", lambda *a, **k: None)  # the engine has its own tests
+    with TestClient(create_app()) as c:
+        auth = login(c)
+        brief = c.post(f"{P}/ops/brief", json={"mode": "armed_forces", "exercise": True}, headers=auth).json()
+        first = brief["sections"]["situation"][0]["text"]
+        assert first.startswith("EXERCISE") and any(i["kind"] == "exercise" for i in brief["evidence"])
+        assert brief["recommendations"] and any("simulated" in u["text"] for u in brief["sections"]["uncertainty"])
+        rec = brief["recommendations"][0]
+        c.post(f"{P}/ops/recommendations/{rec['id']}/decision", json={"action": "accept"}, headers=auth)
+        assert c.get(f"{P}/decisions").json()[0]["evidence"]["exercise"] is True
+        live = c.post(f"{P}/ops/brief", json={"mode": "armed_forces"}, headers=auth).json()
+        assert not any(i["kind"] == "exercise" for i in live["evidence"])
+
+
+def test_engine_is_tested_against_the_simulated_flood(db):
+    store.add_indicator("cachar", "normal", _indicator("normal", 0.0))  # the scenario builds on a district's real flood flows
+    ev = advisor.collect_evidence(include_engine=True, simulated=True)
+    engine = ev.get("engine", "cachar")[0]["data"]
+    assert "simulated flood peaking" in engine["tested_against"] and "180 mm" in engine["tested_against"]
+    live = advisor.engine_facts("cachar")
+    assert live["tested_against"] == "the live forecast"
+    assert engine["evacuated_on_a_bad_day_pct"] <= live["evacuated_on_a_bad_day_pct"]  # a bigger flood is no easier
+
+
 # ---------------------------------------------------------------- hash chain
 
 
@@ -213,7 +285,7 @@ def test_ops_read_endpoints_are_public_and_report_feed_health(client):
 
 def test_brief_needs_login_and_is_stored_then_decided_once(client, monkeypatch):
     seed()
-    monkeypatch.setattr(advisor, "collect_evidence", lambda include_engine=True: _collect())
+    monkeypatch.setattr(advisor, "collect_evidence", lambda include_engine=True, simulated=False: _collect())
     assert client.post(f"{P}/ops/brief", json={}).status_code == 401
     auth = login(client)
     assert client.post(f"{P}/ops/brief", json={"mode": "nonsense"}, headers=auth).status_code == 422

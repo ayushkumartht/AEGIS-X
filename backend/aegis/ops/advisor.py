@@ -19,7 +19,7 @@ from dataclasses import dataclass
 from aegis.llm.base import LLMError, LLMProvider
 from aegis.llm.explain import numbers_are_grounded
 from aegis.ops import districts as watch
-from aegis.ops import store
+from aegis.ops import exercise, store
 
 SEVERITY_RANK = {"Extreme": 4, "Severe": 3, "Moderate": 2, "Minor": 1}
 LEVEL_RANK = {"severe": 3, "warning": 2, "watch": 1, "normal": 0}
@@ -123,8 +123,11 @@ _engine_lock = threading.Lock()
 ENGINE_TTL_S = 1800.0
 
 
-def engine_facts(district_id: str, samples: int = 150) -> dict | None:
+def engine_facts(district_id: str, samples: int = 150, scenario: dict | None = None) -> dict | None:
     """Tested numbers for a built district: baseline plan, Red Team and the top "check first" item.
+
+    `scenario` ({"peak_flow": m3/s, "rain_mm": mm}) tests the plan against a stated flood instead of the
+    live forecast; the exercise uses it so its numbers match its simulated river level.
 
     The run takes about 40 s, so the result is kept for 30 minutes (the forecast changes every 6 hours)
     and the background poller warms it after each river-risk refresh.
@@ -132,24 +135,32 @@ def engine_facts(district_id: str, samples: int = 150) -> dict | None:
     d = watch.by_id(district_id)
     if d is None or not d.console:
         return None
+    key = f"{district_id}:{json.dumps(scenario, sort_keys=True)}"
     with _engine_lock:
-        hit = _engine_cache.get(district_id)
+        hit = _engine_cache.get(key)
         if hit and time.monotonic() - hit[0] < ENGINE_TTL_S:
             return hit[1]
-        facts = _compute_engine_facts(d, samples)
-        _engine_cache[district_id] = (time.monotonic(), facts)
+        facts = _compute_engine_facts(d, samples, scenario)
+        _engine_cache[key] = (time.monotonic(), facts)
         return facts
 
 
-def _compute_engine_facts(d: watch.WatchedDistrict, samples: int) -> dict:
+def _compute_engine_facts(d: watch.WatchedDistrict, samples: int, scenario: dict | None = None) -> dict:
     from aegis.api import context, services
+    from aegis.api.schemas import WhatIf
+    from aegis.domains.flood.hydrology import Rating
     from aegis.domains.flood.plans import baseline_plan
 
     ctx = context.get_context(d.console)
     plan = baseline_plan(ctx.scenario)
-    sim = services.simulate(ctx, plan, None, samples, 42)
-    red = services.redteam(ctx, plan, None, samples, 42, 0.6)
-    voi = services.voi(ctx, plan, None, min(samples, 80), 42)
+    what_if, tested = None, "the live forecast"
+    if scenario:
+        stage = round(Rating(**ctx.forecast["rating"]).stage(float(scenario["peak_flow"])), 2)
+        what_if = WhatIf(peak_stage_m=stage, local_rain_mm=scenario["rain_mm"])
+        tested = f"a simulated flood peaking {stage} m above normal with {scenario['rain_mm']:.0f} mm of local rain"
+    sim = services.simulate(ctx, plan, what_if, samples, 42)
+    red = services.redteam(ctx, plan, what_if, samples, 42, 0.6)
+    voi = services.voi(ctx, plan, what_if, min(samples, 80), 42)
     names = ctx.scenario.bridge_names
     spof = [{"element": names.get(s["element_id"], s["element_id"]), "drop_pct": round(s["drop_pct"], 1)}
             for s in red["single_points_of_failure"] if s["drop_pct"] > 0.05][:2]
@@ -163,6 +174,7 @@ def _compute_engine_facts(d: watch.WatchedDistrict, samples: int) -> dict:
         estimates.append("the number of boats and vehicles is assumed")
     return {
         "plan": "baseline plan",
+        "tested_against": tested,
         "futures_tested": samples,
         "evacuated_on_average_pct": round(sim["summary"]["mean"] * 100),
         "evacuated_on_a_bad_day_pct": round(sim["resilience_worst_10pct"] * 100),
@@ -175,19 +187,28 @@ def _compute_engine_facts(d: watch.WatchedDistrict, samples: int) -> dict:
     }
 
 
-def collect_evidence(include_engine: bool = True) -> Evidence:
+def collect_evidence(include_engine: bool = True, simulated: bool = False) -> Evidence:
+    """The facts a brief may use. `simulated` swaps live feeds for the labelled exercise scenario."""
     ev = Evidence()
-    indicators = store.latest_indicators()
+    if simulated:
+        indicators = exercise.indicators(store.latest_indicators())
+        alerts = exercise.filter_events(exercise.events(), hazard="flood", active=True)
+        week = exercise.week_over_week()
+    else:
+        indicators = store.latest_indicators()
+        alerts = store.list_events(hazard="flood", days=3, active=True)
+        week = store.week_over_week("flood")
     cfg = watch.load_config()
     levels = {d.id: indicators.get(d.id, {}).get("level", "unknown") for d in cfg.districts}
     counts = {lv: sum(1 for v in levels.values() if v == lv) for lv in ("severe", "warning", "watch", "normal", "unknown")}
-    alerts = [e for e in store.list_events(hazard="flood", days=3, active=True)]
     alerts.sort(key=_alert_rank)
     ev.add("summary", "Watch overview", {
         "districts_watched": len(cfg.districts), "severe": counts["severe"], "warning": counts["warning"],
         "watch": counts["watch"], "normal": counts["normal"], "no_indicator": counts["unknown"],
-        "active_flood_alerts": len(alerts), "alerts_this_week": store.week_over_week("flood")["this_week"],
+        "active_flood_alerts": len(alerts), "alerts_this_week": week["this_week"],
     })
+    if simulated:
+        ev.add("exercise", "Simulated exercise scenario", {"scenario": exercise.TITLE, "notice": exercise.NOTICE})
     for e in alerts[:MAX_ALERTS]:
         data = {"event": e["event"], "severity": e["severity"], "certainty": e["certainty"], "sender": e["sender"],
                 "area": e["area"], "state": e["state"], "expires": e["expires"], "headline": e["headline"][:200]}
@@ -210,10 +231,14 @@ def collect_evidence(include_engine: bool = True) -> Evidence:
     if include_engine:
         for d in cfg.districts:
             if d.console and levels.get(d.id) in LEVEL_RANK:
-                facts = engine_facts(d.id)
+                scenario = None
+                rain = exercise.engine_rain_mm(levels[d.id]) if simulated else None
+                if rain:
+                    scenario = {"peak_flow": float(indicators[d.id]["peak_median"]), "rain_mm": rain}
+                facts = engine_facts(d.id, scenario=scenario)
                 if facts:
                     ev.add("engine", f"{d.name}: tested plan", {"district": d.name, **facts}, d.id)
-    for feed in store.feeds():
+    for feed in ([] if simulated else store.feeds()):
         if feed["last_error"]:
             ev.add("feed_down", f"{feed['name']} unavailable", {"feed": feed["name"], "error": feed["last_error"][:160],
                                                                   "last_success": feed["last_success"] or "never"})
@@ -289,7 +314,7 @@ def rules_brief(ev: Evidence, mode: Mode) -> dict:
             e = eng["data"]
             ids.append(eng["id"])
             gain = (f"The baseline plan evacuates {e['evacuated_on_average_pct']}% on average and "
-                    f"{e['evacuated_on_a_bad_day_pct']}% on a bad day ({e['futures_tested']} futures tested).")
+                    f"{e['evacuated_on_a_bad_day_pct']}% on a bad day ({e['futures_tested']} futures tested against {e['tested_against']}).")
             cost = f"On average {e['people_moved_unnecessarily_on_average']} people would be moved who did not need to be."
             risk = f"The plan fails in {e['plan_fails_in_pct_of_futures']}% of futures."
             if e["single_points_of_failure"]:
@@ -324,6 +349,8 @@ def rules_brief(ev: Evidence, mode: Mode) -> dict:
     # uncertainty
     sections["uncertainty"].append(_item(
         "River risk comes from a global forecast (GloFAS, about 5 km): local drainage and embankment breaches are not in it.", summary["id"]))
+    for x in ev.get("exercise"):
+        sections["uncertainty"].append(_item("All alerts and river levels in this brief are simulated for an exercise.", x["id"]))
     for e in ev.get("engine"):
         for est in e["data"]["estimates"]:
             sections["uncertainty"].append(_item(f"{e['data']['district']}: {est}.", e["id"]))
@@ -398,14 +425,17 @@ def llm_brief(ev: Evidence, mode: Mode, provider: LLMProvider) -> dict | None:
     return validate(raw, ev, {i["district_id"] for i in ev.items if i["district_id"]})
 
 
-def build_brief(mode_id: str, provider: LLMProvider, include_engine: bool = True) -> dict:
+def build_brief(mode_id: str, provider: LLMProvider, include_engine: bool = True, simulated: bool = False) -> dict:
     """{"sections", "source", "model", "evidence", "recommendations"} for the current evidence."""
     mode = MODES.get(mode_id) or MODES[DEFAULT_MODE]
-    ev = collect_evidence(include_engine)
+    ev = collect_evidence(include_engine, simulated)
     sections = llm_brief(ev, mode, provider)
     source = provider.name if sections else "rules"
     if sections is None:
         sections = rules_brief(ev, mode)
+    if simulated:  # whoever wrote the brief, it must say what it is built on
+        marker = ev.get("exercise")[0]
+        sections["situation"].insert(0, _item("EXERCISE: this brief is built on a simulated scenario, not on real alerts or river levels.", marker["id"]))
     model = getattr(provider, "model", "") if source != "rules" else ""
     return {"mode": mode.id, "sections": sections, "source": source, "model": model,
             "evidence": ev.items, "recommendations": sections["actions"]}

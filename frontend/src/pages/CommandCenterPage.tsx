@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useSearchParams } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { api } from '@/api/client'
 import { AccountMenu } from '@/components/site/AccountMenu'
@@ -43,11 +43,25 @@ export default function CommandCenterPage() {
     }
   }
 
+  // The simulated exercise is chosen per viewer (?exercise=1 in the address) and never mixed with live data.
+  const [search, setSearch] = useSearchParams()
+  const exercise = search.get('exercise') === '1'
+  const setExercise = (on: boolean) => {
+    setSelected(null)
+    setSearch((prev) => {
+      const next = new URLSearchParams(prev)
+      if (on) next.set('exercise', '1')
+      else next.delete('exercise')
+      return next
+    }, { replace: true })
+  }
+
   const hazards = useQuery({ queryKey: ['ops-hazards'], queryFn: api.opsHazards, retry: false })
   const modes = useQuery({ queryKey: ['ops-modes'], queryFn: api.opsModes, retry: false })
-  const feeds = useQuery({ queryKey: ['ops-feeds'], queryFn: api.opsFeeds, refetchInterval: POLL_MS, retry: false })
-  const events = useQuery({ queryKey: ['ops-events', hazard], queryFn: () => api.opsEvents({ hazard, days: 3 }), refetchInterval: POLL_MS, retry: false })
-  const districts = useQuery({ queryKey: ['ops-districts'], queryFn: api.opsDistricts, refetchInterval: POLL_MS, retry: false })
+  const scenario = useQuery({ queryKey: ['ops-exercise'], queryFn: api.opsExercise, retry: false })
+  const feeds = useQuery({ queryKey: ['ops-feeds', exercise], queryFn: () => api.opsFeeds(exercise), refetchInterval: POLL_MS, retry: false })
+  const events = useQuery({ queryKey: ['ops-events', hazard, exercise], queryFn: () => api.opsEvents({ hazard, days: 3, exercise }), refetchInterval: POLL_MS, retry: false })
+  const districts = useQuery({ queryKey: ['ops-districts', exercise], queryFn: () => api.opsDistricts(exercise), refetchInterval: POLL_MS, retry: false })
   const integrity = useQuery({ queryKey: ['integrity'], queryFn: api.integrity, retry: false })
   const refresh = useMutation({
     mutationFn: () => api.opsRefresh(false),
@@ -75,7 +89,18 @@ export default function CommandCenterPage() {
       <main className="mx-auto max-w-7xl space-y-4 px-4 py-4 sm:px-6">
         {apiDown && <p className="rounded-lg bg-destructive/10 px-3 py-2 text-risk" role="alert">Cannot reach the AEGIS-X server. It may be waking up; try again in a minute.</p>}
 
+        {exercise && (
+          <div className="rounded-lg border-2 border-amber-500 bg-amber-100 px-4 py-2 text-sm font-medium text-amber-950 dark:bg-amber-950/40 dark:text-amber-100" role="status">
+            EXERCISE MODE: {scenario.data?.title ?? 'simulated scenario'}. {scenario.data?.notice ?? 'Everything on this screen is simulated.'}
+            <button className="ml-3 font-semibold underline" onClick={() => setExercise(false)}>Back to live data</button>
+          </div>
+        )}
+
         <div className="flex flex-wrap items-center gap-3">
+          <div className="flex overflow-hidden rounded-lg border text-sm" role="group" aria-label="Data source">
+            <button className={`px-3 py-1.5 ${exercise ? 'hover:bg-accent' : 'bg-primary font-medium text-primary-foreground'}`} aria-pressed={!exercise} onClick={() => setExercise(false)}>Live data</button>
+            <button className={`px-3 py-1.5 ${exercise ? 'bg-amber-500 font-medium text-black' : 'hover:bg-accent'}`} aria-pressed={exercise} onClick={() => setExercise(true)} title="A simulated flood scenario for drills and demos; clearly labelled, never mixed with live data">Exercise (simulated)</button>
+          </div>
           <label className="flex items-center gap-2 text-sm">
             <span className="text-muted-foreground">Working as</span>
             <select className="rounded-lg border bg-background px-2 py-1.5" value={mode} onChange={(e) => setMode(e.target.value)} aria-label="Operating mode">
@@ -97,7 +122,7 @@ export default function CommandCenterPage() {
             ))}
           </div>
           <div className="ml-auto w-full sm:w-72"><PlaceSearch onPick={setFocus} /></div>
-          {canWrite(user) && (
+          {canWrite(user) && !exercise && (
             <Button size="sm" variant="outline" onClick={() => refresh.mutate()} disabled={refresh.isPending}>{refresh.isPending ? 'Refreshing' : 'Refresh alerts now'}</Button>
           )}
         </div>
@@ -113,6 +138,14 @@ export default function CommandCenterPage() {
             </div>
           ))}
         </section>
+
+        {!exercise && districts.data && list.every((d) => d.level === 'normal' || d.level === 'unknown') && (
+          <p className="rounded-lg bg-accent px-3 py-2 text-sm">
+            All watched rivers are calm right now, so nothing is at watch level.{' '}
+            <button className="font-semibold underline" onClick={() => setExercise(true)}>Open the simulated flood exercise</button>{' '}
+            to see how the Command Center, the brief and the evacuation engine behave when rivers are in spate.
+          </p>
+        )}
 
         <section className="grid gap-4 lg:grid-cols-[1.4fr_1fr]">
           <div className="h-[28rem] lg:h-[40rem]">
@@ -137,7 +170,7 @@ export default function CommandCenterPage() {
           </div>
         </section>
 
-        <BriefPanel mode={mode} />
+        <BriefPanel mode={mode} exercise={exercise} />
 
         <footer className="flex flex-wrap items-center gap-3 border-t pt-3 text-xs text-muted-foreground">
           {integrity.data && (

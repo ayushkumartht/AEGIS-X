@@ -193,6 +193,15 @@ Tests: CAP parsing on recorded XML (no network), Gumbel and exceedance on synthe
 | C6 | Console: Resources tab, `?tab=` | — | done |
 | C7 | Outside requests: IMD whitelisting, ReliefWeb appname, FIRMS key | each source added behind the same feed-health contract | needs the owner |
 
+## 11b. Simulated exercise (added 23 Oct 2026)
+
+On a calm day every district is "normal" and the screen shows nothing happening. For drills and demos the Command Center has a **simulated exercise** scenario, "Brahmaputra and Barak in spate" (`aegis/ops/exercise.py`).
+
+- **Per viewer, never global.** `?exercise=1` on the page (`exercise=true` on `/ops/events`, `/ops/districts`, `/ops/feeds`, and `exercise` in the brief request). Nobody else's screen changes, and it is never mixed with live data.
+- **Labelled everywhere.** Amber banner on the page, source "SIMULATED EXERCISE", alert ids `exercise:...`, a "SIMULATED EXERCISE" badge on the brief whose first line says it is built on a simulated scenario, and decisions taken on it are stored with `exercise: true` (shown on `/audit`).
+- **Realistic shape.** 1 severe (Cachar), 3 warning, 7 watch districts. Flood levels come from each district's own GloFAS flood flows (so "20-year flood" means that river's 20-year flood); 14 alerts with CWC gauge readings against warning and danger levels (Cachar's Barak gauge above danger), IMD heavy-rain alerts and state SDMA alerts at real gauge sites. All readings are invented.
+- **The engine is real.** For built districts the evacuation engine runs against the simulated flood (the rating curve turns the simulated peak flow into a stage; local rain is added), so the brief's evacuation numbers are tested numbers for that scenario.
+
 ## 12. Limits (shown in the UI)
 
 - The advisor suggests; it never sends alerts or orders.

@@ -44,6 +44,7 @@ export default function AuditPage() {
                   <Badge variant={d.action === 'reject' ? 'destructive' : 'default'}>{d.action}</Badge>
                   <strong>#{d.id}</strong>
                   <span className="text-muted-foreground">{new Date(d.decided_at).toLocaleString()} by {d.author} for {d.district}</span>
+                  {d.evidence?.exercise === true && <Badge className="bg-amber-500 text-black">simulated exercise</Badge>}
                   {broken.has(d.id) && <Badge variant="destructive">does not verify</Badge>}
                 </div>
                 {d.run && (

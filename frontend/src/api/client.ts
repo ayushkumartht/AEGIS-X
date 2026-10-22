@@ -123,17 +123,19 @@ export const api = {
   overview: () => request<Overview>('/admin/overview'),
   integrity: () => request<Integrity>('/audit/integrity'),
   opsHazards: () => request<Hazard[]>('/ops/hazards'),
-  opsFeeds: () => request<{ feeds: FeedStatus[]; offline: boolean }>('/ops/feeds'),
-  opsEvents: (q: { hazard?: string; days?: number } = {}) => {
+  opsFeeds: (exercise = false) => request<{ feeds: FeedStatus[]; offline: boolean; exercise: boolean }>(`/ops/feeds?exercise=${exercise}`),
+  opsExercise: () => request<{ title: string; notice: string; source: string }>('/ops/exercise'),
+  opsEvents: (q: { hazard?: string; days?: number; exercise?: boolean } = {}) => {
     const params = new URLSearchParams()
     if (q.hazard) params.set('hazard', q.hazard)
     if (q.days) params.set('days', String(q.days))
+    if (q.exercise) params.set('exercise', 'true')
     return request<OpsEvents>(`/ops/events?${params}`)
   },
-  opsDistricts: () => request<OpsDistricts>('/ops/districts'),
+  opsDistricts: (exercise = false) => request<OpsDistricts>(`/ops/districts?exercise=${exercise}`),
   opsModes: () => request<OpsMode[]>('/ops/modes'),
   opsRefresh: (risk = false) => post<unknown>(`/ops/refresh?risk=${risk}`, {}),
-  opsBrief: (mode: string) => post<Brief>('/ops/brief', { mode }),
+  opsBrief: (mode: string, exercise = false) => post<Brief>('/ops/brief', { mode, exercise }),
   opsBriefs: () => request<Brief[]>('/ops/briefs'),
   opsDecide: (recId: number, action: 'accept' | 'reject', note: string) =>
     post<{ decision_id: number; status: string }>(`/ops/recommendations/${recId}/decision`, { action, note }),

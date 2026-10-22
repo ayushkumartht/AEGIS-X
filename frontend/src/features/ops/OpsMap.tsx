@@ -8,7 +8,13 @@ import { LEVEL_COLOR, LEVEL_LABEL, SEVERITY_COLOR } from './levels'
 // Vite pre-bundles maplibre-gl, which breaks its default worker location: point it at the worker file.
 maplibregl.setWorkerUrl(workerUrl)
 
-const TILES = import.meta.env.VITE_OSM_RASTER_TILE_URL || 'https://tile.openstreetmap.org/{z}/{x}/{y}.png'
+// Esri's light-gray canvas (token-free, labels in English) keeps the coloured markers readable. Set
+// VITE_OSM_RASTER_TILE_URL to use a different raster basemap, for example OpenStreetMap's own tiles.
+const ESRI = 'https://server.arcgisonline.com/ArcGIS/rest/services/Canvas'
+const TILE_URL = import.meta.env.VITE_OSM_RASTER_TILE_URL as string | undefined
+const BASE_TILES = TILE_URL ?? `${ESRI}/World_Light_Gray_Base/MapServer/tile/{z}/{y}/{x}`
+const LABEL_TILES = TILE_URL ? null : `${ESRI}/World_Light_Gray_Reference/MapServer/tile/{z}/{y}/{x}`
+const ATTRIBUTION = TILE_URL ? '© OpenStreetMap contributors' : 'Map: Esri, HERE, Garmin, OpenStreetMap contributors'
 const INDIA: maplibregl.LngLatBoundsLike = [[67.5, 6], [98.5, 37.5]]
 type Collection = Parameters<maplibregl.GeoJSONSource['setData']>[0]
 const COLLECTION = (features: unknown[]) => ({ type: 'FeatureCollection' as const, features }) as unknown as Collection
@@ -51,8 +57,14 @@ export function OpsMap({ districts, events, selectedId, focus, onSelect }: Props
       container: el,
       style: {
         version: 8,
-        sources: { osm: { type: 'raster', tiles: [TILES], tileSize: 256, maxzoom: 18, attribution: '© OpenStreetMap contributors' } },
-        layers: [{ id: 'osm', type: 'raster', source: 'osm', paint: { 'raster-saturation': -0.35, 'raster-brightness-max': 0.92 } }],
+        sources: {
+          base: { type: 'raster', tiles: [BASE_TILES], tileSize: 256, maxzoom: 16, attribution: ATTRIBUTION },
+          ...(LABEL_TILES ? { labels: { type: 'raster', tiles: [LABEL_TILES], tileSize: 256, maxzoom: 16 } } : {}),
+        },
+        layers: [
+          { id: 'base', type: 'raster', source: 'base' },
+          ...(LABEL_TILES ? [{ id: 'labels', type: 'raster' as const, source: 'labels' }] : []),
+        ],
       },
       bounds: INDIA,
       fitBoundsOptions: { padding: 16 },
@@ -113,6 +125,28 @@ export function OpsMap({ districts, events, selectedId, focus, onSelect }: Props
 
   useEffect(paint, [districts, events, selectedId])
 
+  // Frame the districts above normal when the set of them changes (first load, or switching data source);
+  // when none is, show the whole country. A selection or a place search takes over from this.
+  const hot = districts.filter((d) => d.level === 'severe' || d.level === 'warning' || d.level === 'watch')
+  const hotKey = hot.map((d) => d.id).sort().join(',')
+  const framed = useRef('')
+  useEffect(() => {
+    const map = mapRef.current
+    if (!map || framed.current === hotKey) return
+    const apply = () => {
+      framed.current = hotKey
+      if (hot.length >= 2) {
+        const b = new maplibregl.LngLatBounds()
+        hot.forEach((d) => b.extend([d.lon, d.lat]))
+        map.fitBounds(b, { padding: 70, maxZoom: 6.5, duration: 800 })
+      } else map.fitBounds(INDIA, { padding: 16, duration: 800 })
+    }
+    if (map.loaded()) apply()
+    else map.once('load', apply)
+    // `hot` is derived from `districts`; the key says when it actually changed
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [hotKey])
+
   useEffect(() => {
     const map = mapRef.current
     if (map && focus) map.flyTo({ center: [focus.lon, focus.lat], zoom: Math.max(map.getZoom(), 8), duration: 900 })
@@ -128,7 +162,10 @@ export function OpsMap({ districts, events, selectedId, focus, onSelect }: Props
 
   return (
     <div className="relative h-full w-full overflow-hidden rounded-xl border">
-      <div ref={host} className="absolute inset-0" role="img" aria-label="Map of India with watched districts coloured by flood level and official alerts coloured by severity" />
+      {/* MapLibre's CSS makes its container position:relative, so the container needs a sized parent */}
+      <div className="absolute inset-0">
+        <div ref={host} className="h-full w-full" role="img" aria-label="Map of India with watched districts coloured by flood level and official alerts coloured by severity" />
+      </div>
       <div className="absolute bottom-6 left-3 z-10 rounded-lg border bg-card/95 p-2 text-xs shadow backdrop-blur">
         <div className="mb-1 font-medium">District flood level</div>
         {(['severe', 'warning', 'watch', 'normal', 'unknown'] as const).map((l) => (

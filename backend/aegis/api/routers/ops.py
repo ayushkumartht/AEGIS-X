@@ -18,6 +18,7 @@ from aegis.ingest import geocode
 from aegis.llm.base import get_provider
 from aegis.ops import advisor, hazards, poller, store
 from aegis.ops import districts as watch
+from aegis.ops import exercise as exercise_data
 from aegis.settings import get_settings
 from aegis.storage import repo
 
@@ -39,15 +40,30 @@ def hazard_list():
 
 
 @router.get("/feeds")
-def feed_health():
-    return {"feeds": store.feeds(), "offline": get_settings().aegis_offline}
+def feed_health(exercise: bool = False):
+    if exercise:
+        return {"feeds": exercise_data.feeds(), "offline": False, "exercise": True}
+    return {"feeds": store.feeds(), "offline": get_settings().aegis_offline, "exercise": False}
+
+
+@router.get("/exercise")
+def exercise_info():
+    """The simulated scenario a viewer can switch to (`?exercise=true` on the other endpoints)."""
+    return {"title": exercise_data.TITLE, "notice": exercise_data.NOTICE, "source": exercise_data.SOURCE}
 
 
 @router.get("/events")
 def events(hazard: str | None = None, severity: str | None = None, state: str | None = None,
-           active: bool | None = None, days: int = Query(3, ge=1, le=30), district_id: str | None = None):
-    rows = [_alert_json(e) for e in store.list_events(hazard=hazard, severity=severity, state=state, active=active,
-                                                      days=days, district_id=district_id)]
+           active: bool | None = None, days: int = Query(3, ge=1, le=30), district_id: str | None = None,
+           exercise: bool = False):
+    if exercise:
+        found = exercise_data.filter_events(exercise_data.events(), hazard=hazard, severity=severity, state=state,
+                                            active=active, district_id=district_id)
+        week = exercise_data.week_over_week()
+    else:
+        found = store.list_events(hazard=hazard, severity=severity, state=state, active=active, days=days, district_id=district_id)
+        week = store.week_over_week(hazard)
+    rows = [_alert_json(e) for e in found]
     features = [
         {"type": "Feature", "geometry": {"type": "Point", "coordinates": [e["lon"], e["lat"]]},
          "properties": {k: e[k] for k in ("uid", "event", "severity", "hazard", "area", "state", "sender", "headline", "place_method", "active")}
@@ -61,14 +77,19 @@ def events(hazard: str | None = None, severity: str | None = None, state: str | 
         "events": rows,
         "geojson": {"type": "FeatureCollection", "features": features},
         "counts": {"total": len(rows), "located": len(features), "active": sum(e["active"] for e in rows), "by_severity": by_severity},
-        "week_over_week": store.week_over_week(hazard),
+        "week_over_week": week,
+        "exercise": exercise,
     }
 
 
 @router.get("/districts")
-def district_list():
-    indicators = store.latest_indicators()
-    alerts = [e for e in store.list_events(hazard="flood", days=3, active=True) if e.get("district_id")]
+def district_list(exercise: bool = False):
+    if exercise:
+        indicators = exercise_data.indicators(store.latest_indicators())
+        alerts = [e for e in exercise_data.filter_events(exercise_data.events(), hazard="flood", active=True) if e.get("district_id")]
+    else:
+        indicators = store.latest_indicators()
+        alerts = [e for e in store.list_events(hazard="flood", days=3, active=True) if e.get("district_id")]
     out = []
     for d in watch.load_config().districts:
         ind = indicators.get(d.id)
@@ -80,7 +101,7 @@ def district_list():
         })
     order = {"severe": 0, "warning": 1, "watch": 2, "normal": 3, "unknown": 4}
     out.sort(key=lambda x: (order.get(x["level"], 4), x["name"]))
-    return {"districts": out, "rule": watch.load_config().rule.__dict__}
+    return {"districts": out, "rule": watch.load_config().rule.__dict__, "exercise": exercise}
 
 
 @router.post("/refresh", dependencies=[Depends(require(*WRITERS)), Depends(heavy)])
@@ -94,6 +115,7 @@ def refresh(risk: bool = False):
 class BriefRequest(BaseModel):
     mode: str = advisor.DEFAULT_MODE
     include_engine: bool = True
+    exercise: bool = False  # build the brief from the simulated scenario instead of live data
 
 
 @router.get("/modes")
@@ -105,7 +127,7 @@ def modes():
 async def make_brief(req: BriefRequest, user: User = Depends(require(*WRITERS))):
     if req.mode not in advisor.MODES:
         raise HTTPException(422, f"Unknown mode {req.mode!r}.")
-    result = await asyncio.to_thread(advisor.build_brief, req.mode, get_provider(), req.include_engine)
+    result = await asyncio.to_thread(advisor.build_brief, req.mode, get_provider(), req.include_engine, req.exercise)
     brief_id = store.add_brief(result["mode"], f"{user.name} <{user.email}>", result["source"], result["model"],
                                result["evidence"], result["sections"], result["recommendations"])
     return store.get_brief(brief_id)
@@ -135,6 +157,7 @@ def decide(rec_id: int, body: DecisionBody, user: User = Depends(require(*WRITER
         rec.get("district_id") or "all", signature, body.action, {}, None,
         f"Command Center recommendation: {rec['action']}", body.note,
         {"kind": "command_center_recommendation", "brief_id": brief["id"], "mode": brief["mode"], "source": brief["source"],
+         "exercise": any(i["kind"] == "exercise" for i in brief["evidence"]),
          "recommendation": {k: rec[k] for k in ("action", "why", "gain", "cost", "risk")}, "evidence": list(cited.values())},
     )
     store.decide_recommendation(rec_id, "accepted" if body.action == "accept" else "rejected", signature, decision_id)

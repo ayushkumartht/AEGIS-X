@@ -77,6 +77,8 @@ Done after this list was written (22 Oct): admin/officer login, Command Center (
 
 ## 5. Demo script: simulation dikhana aur samjhana
 
+**Kal ya aaj sab rivers calm ho to** `/command` par sab "normal" dikhega. Tab **"Exercise (simulated)"** button dabao (ya `/command?exercise=1`): amber banner ke saath ek simulated baadh scenario (Cachar severe, Brahmaputra/Barak ke districts warning/watch, CWC gauge readings, IMD alerts). Yeh sirf tumhari screen par hai, live data se kabhi mix nahi hota, aur har jagah "simulated" likha rehta hai.
+
 **Pehle Command Center (2 min):** `/command` kholo, mode (jaise Armed Forces) chuno, map par districts aur alerts dikhao, ek CWC gauge alert kholo (level vs danger level bar), Cachar par click karke "Open the evacuation console". Phir login karke "Generate brief" dabao: situation, actions (har ek ke saath evidence ids E1, E2...), Accept/Reject, aur neeche "Decision log: chain intact".
 
 Pehle servers: `.\scripts\dev.ps1` (ya jo already chal rahe hain). Browser: `http://localhost:5173/console/cachar`.

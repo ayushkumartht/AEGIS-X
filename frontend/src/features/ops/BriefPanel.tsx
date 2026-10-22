@@ -73,18 +73,23 @@ function RecommendationCard({ rec, evidence, canDecide, onDone }: { rec: Recomme
   )
 }
 
-export function BriefPanel({ mode }: { mode: string }) {
+const isExercise = (b: Brief) => b.evidence.some((e) => e.kind === 'exercise')
+
+export function BriefPanel({ mode, exercise }: { mode: string; exercise: boolean }) {
   const user = useAuth((s) => s.user)
   const location = useLocation()
   const qc = useQueryClient()
   const allowed = canWrite(user)
-  const past = useQuery({ queryKey: ['ops-briefs'], queryFn: api.opsBriefs, enabled: allowed, retry: false })
+  const allPast = useQuery({ queryKey: ['ops-briefs'], queryFn: api.opsBriefs, enabled: allowed, retry: false })
+  // live briefs and exercise briefs are kept apart: the screen shows the ones that match its data source
+  const past = { ...allPast, data: allPast.data?.filter((b) => isExercise(b) === exercise) }
   const make = useMutation({
-    mutationFn: () => api.opsBrief(mode),
+    mutationFn: () => api.opsBrief(mode, exercise),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['ops-briefs'] }),
   })
   const [openId, setOpenId] = useState<number | null>(null)
-  const brief: Brief | undefined = (openId ? past.data?.find((b) => b.id === openId) : undefined) ?? make.data ?? past.data?.[0]
+  const justMade = make.data && isExercise(make.data) === exercise ? make.data : undefined
+  const brief: Brief | undefined = (openId ? past.data?.find((b) => b.id === openId) : undefined) ?? justMade ?? past.data?.[0]
   const evidence = new Map((brief?.evidence ?? []).map((e) => [e.id, e]))
   const refreshBriefs = () => qc.invalidateQueries({ queryKey: ['ops-briefs'] })
 
@@ -92,11 +97,12 @@ export function BriefPanel({ mode }: { mode: string }) {
     <section className="rounded-xl border bg-card p-4 text-sm" aria-label="AI strategy brief">
       <div className="flex flex-wrap items-center gap-3">
         <h2 className="text-base font-semibold">Strategy brief</h2>
+        {brief && isExercise(brief) && <Badge className="bg-amber-500 text-black">SIMULATED EXERCISE</Badge>}
         {brief && <Badge variant="outline">{brief.source === 'rules' ? 'written by rules (no AI text)' : `written by ${brief.source} ${brief.model}, checked against the evidence`}</Badge>}
         <div className="ml-auto flex items-center gap-2">
           {allowed ? (
             <Button size="sm" onClick={() => { setOpenId(null); make.mutate() }} disabled={make.isPending}>
-              {make.isPending ? 'Working it out (up to a minute)' : 'Generate brief'}
+              {make.isPending ? 'Working it out (up to a minute)' : exercise ? 'Generate brief for the exercise' : 'Generate brief'}
             </Button>
           ) : (
             <span className="text-xs text-muted-foreground"><Link className="font-medium underline" to={`/login?next=${encodeURIComponent(location.pathname)}`}>Sign in</Link> as an officer to generate a brief.</span>
