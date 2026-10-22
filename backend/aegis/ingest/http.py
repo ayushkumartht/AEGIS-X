@@ -21,8 +21,8 @@ def use_transport(transport: httpx.BaseTransport | None) -> None:
     _transport = transport
 
 
-def _request(method: str, url: str, **kwargs) -> httpx.Response:
-    headers = {"User-Agent": get_settings().http_user_agent, "Accept": "application/json"}
+def _request(method: str, url: str, accept: str = "application/json", **kwargs) -> httpx.Response:
+    headers = {"User-Agent": get_settings().http_user_agent, "Accept": accept}
     last: Exception | None = None
     for attempt in range(RETRIES):
         try:
@@ -40,6 +40,11 @@ def _request(method: str, url: str, **kwargs) -> httpx.Response:
 
 def get_json(url: str, params: dict | None = None):
     return _request("GET", url, params=params).json()
+
+
+def get_text(url: str, params: dict | None = None) -> str:
+    """Body of a non-JSON resource (RSS, XML)."""
+    return _request("GET", url, accept="*/*", params=params).text
 
 
 def post_form_json(url: str, data: dict):
