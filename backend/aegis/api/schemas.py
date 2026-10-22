@@ -87,13 +87,18 @@ class ExplainRequest(BaseModel):
     payload: dict
 
 
+OperatorName = Field(default="Duty officer", min_length=1, max_length=80)  # who is acting; typed in, not verified
+
+
 class ReportRequest(BaseModel):
+    author: str = OperatorName
     district: str = "demo"
     text: str = Field(min_length=3, max_length=1000)
     source_type: Literal["field_team", "control_room", "official_feed", "public_call", "social_media"] = "control_room"
 
 
 class DecisionRequest(BaseModel):
+    author: str = OperatorName
     district: str = "demo"
     action: Literal["accept", "edit", "reject"]
     plan: PlanModel
