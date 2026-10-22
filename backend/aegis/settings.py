@@ -25,12 +25,6 @@ class Settings(BaseSettings):
     aegis_cors_origins: str = "http://localhost:5173"
     aegis_cors_origin_regex: str = ""  # e.g. https://aegis-x-.*\.vercel\.app for preview deploys
 
-    # Accounts. The secret signs login tokens; the admin account is created on first start.
-    aegis_secret_key: str = ""
-    aegis_admin_email: str = ""
-    aegis_admin_password: str = ""
-    aegis_token_hours: int = 12
-
     # Command Center: refresh live alerts and river risk in the background (one process only).
     aegis_ops_poll: bool = False
 
