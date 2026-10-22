@@ -5,10 +5,11 @@ bbox: [92.74, 24.78, 92.84, 24.88]
 # OSM spells the river "Barāk" (with a macron), so `name` is a case-insensitive regex.
 river:
   name: "Bar[aā]k"
-# Census 2011 population of Silchar municipality, rounded. VERIFY against the census table
-# before quoting it; people per cluster are scaled to this total.
-population_total: 178000
-population_note: "Approximate Census 2011 figure for Silchar town; spread over the area in proportion to road length."
+# Census 2011: 172,709 in Silchar municipality (silchar.assamurban.in) and 178,865 with its
+# outgrowths (citypopulation.de); the box covers the outgrowths. No ward-level counts are
+# published online, so people per area are spread in proportion to road length.
+population_total: 178865
+population_note: "Census 2011 total for Silchar municipality with outgrowths (178,865); spread over the area in proportion to road length, as ward counts are not published."
 forecast_points:
   - {id: silchar, lat: 24.83, lon: 92.78}
 # Boat bases. Coordinates are assumptions near the town centre and the river bank: replace
@@ -20,7 +21,7 @@ staging_points:
 resources:
   boats: 12
   vehicles: 6
-  note: "Assumed. Replace with the district EOC / IDRN resource inventory."
+  note: "Assumed: no district boat inventory is published. In June 2022 an Army team brought 9 boats to Silchar and the rest were pooled from NDRF, SDRF, Army and CRPF (press reports). Replace with the EOC / IDRN inventory."
 shelters_csv: data/reference/cachar_shelters.csv
 events:
   - {id: silchar_2022, start: "2022-06-10", end: "2022-06-30"}

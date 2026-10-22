@@ -1,0 +1,1 @@
+{"source": "nominatim", "params": {"q": "Itkhola", "format": "jsonv2", "viewbox": "92.74,24.88,92.84,24.78", "bounded": 1, "limit": 3}, "fetched_at": "2026-10-22T06:40:31.760731+00:00", "data": [{"name": "Itkhola, Tarapur, Silchar, Cachar, Assam, 788014, India", "lat": 24.833919, "lon": 92.8007505, "osm": "way/310463732", "type": "tertiary"}]}

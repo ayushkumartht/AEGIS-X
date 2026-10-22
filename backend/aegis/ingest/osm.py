@@ -35,6 +35,22 @@ def roads(district: str, bbox: tuple[float, float, float, float]) -> dict:
     return cached_json(district, "osm_roads", {"bbox": box, "classes": ROAD_CLASSES}, lambda: _run(query))
 
 
+INSTITUTION_NAMES = "school|vidyal|bidyal|path?s?h?ala|college|institute|academy|niketan|mandir|sishu|vidyapith|bidyapith"
+
+
+def named_places(district: str, bbox: tuple[float, float, float, float]) -> dict:
+    """Every mapped school-like building and every named locality (place=*) in the box, with centres."""
+    box = _bbox(bbox)
+    query = (
+        f'[out:json][timeout:180];('
+        f'nwr["name"~"{INSTITUTION_NAMES}",i]({box});'
+        f'nwr["amenity"~"^(school|college|university)$"]({box});'
+        f'node["place"]["name"]({box});'
+        f');out center tags;'
+    )
+    return cached_json(district, "osm_named_places", {"bbox": box, "names": INSTITUTION_NAMES}, lambda: _run(query))
+
+
 def buildings_cached(district: str, bbox: tuple[float, float, float, float]) -> bool:
     return cache_path(district, "osm_buildings", {"bbox": _bbox(bbox)}).exists()
 

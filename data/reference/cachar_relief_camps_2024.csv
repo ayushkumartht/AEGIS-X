@@ -1,0 +1,59 @@
+# Relief camps opened in and around Silchar town during the 2024 floods, as named in the
+# Cachar district administration's "Cumulative Flood Report of Cachar District from 01.05.2024
+# to 30.11.2024" (cachar.assam.gov.in, public_utility). Only schools, colleges and halls are
+# listed here (village-name camps cannot be located). The report gives names only: no
+# coordinates and no capacities. scripts/geocode_relief_camps.py locates them and writes
+# cachar_shelters.csv. `locality` is the neighbourhood named in the camp's own name, used only
+# when the building itself is not on the map. `kind`: hs (high/higher secondary school,
+# college, institute) or lp (primary/middle school, pathshala).
+name,locality,kind
+Narsing Higher Secondary School,Narsing Tola,hs
+Government Girls Higher Secondary School,,hs
+Government Boys Higher Secondary School,,hs
+Cachar College,Tarapur,hs
+Cachar High School,,hs
+Netaji Memorial Institute,Tarapur,hs
+Raja Gobinda Chandra Memorial High School,,hs
+Nityamoyee Pathsala,Tarapur,lp
+Malugram Girls High School,Malugram,hs
+Pranabananda Bidyamandir,Tarapur,hs
+Dr. B. C. Roy Memorial Academy,,hs
+Devi Prasad Government Junior Basic School,,lp
+Joykumar Balika Vidyalaya,,hs
+Ukil Bazar LP School,Ukil Bazar,lp
+Ram Kumar Nandi Pathsala,,lp
+Rani Nagar LP School,Rani Nagar,lp
+Tarapur Girls High School,Tarapur,hs
+Surjya Kumar High School,,hs
+Abhaya Charan Pathshala,,lp
+Balighat LP School,Balighat,lp
+Badripar LP School,Badripar,lp
+Chotolal Sheth Institute,,hs
+Niranjan Paul Institute,,hs
+DBTR Phukan Government ME School,,lp
+A. C. Memorial Higher Secondary School,,hs
+Itkhola Hindi Pathsala,Itkhola,lp
+Kashipur B. B. Patil High School,Kashipur,hs
+Srikona High School,Srikona,hs
+Town Girls High School,,hs
+Normal School,,hs
+A. K. Chanda Law College,,hs
+Daffodils School,,lp
+Tupkhana Model School,Tupkhana,lp
+DNNK Girls High School,,hs
+Kendriya Vidyalaya Silchar,,hs
+S. C. Deb Bidyapith,,hs
+Hiranprova Dev Sishu Mandir,,lp
+West Silchar College,Barjatrapur,hs
+Saraswati Bidya Niketan,,lp
+Sishu Tirtha School,,lp
+Uttar Krishnapur LP School,Uttar Krishnapur,lp
+Rampur Government A Class School,Rampur,lp
+Benimadhab LP School,,lp
+Joykali LP School,,lp
+Chandramoni Indramoni LP School,,lp
+Noor Khatun Girls ME School,,lp
+Kanakpur LP School,Kanakpur,lp
+Ghagrapar Model LP School,Ghagrapar,lp
+Bethukandi LP School,Bethukandi,lp
+Dakshin Krishnapur LP School,Dakshin Krishnapur,lp

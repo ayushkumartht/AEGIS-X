@@ -99,4 +99,10 @@ def test_shelter_csv_validation(tmp_path):
     with pytest.raises(DataError):
         load_shelters(str(bad))
     assert load_shelters("") == []
-    assert load_shelters("data/reference/cachar_shelters.csv") == []  # header-only file
+    half = tmp_path / "h.csv"
+    half.write_text("id,name,lat,lon,capacity,type,source\ns1,A,24.8,,200,school,x\n", encoding="utf-8")
+    with pytest.raises(DataError):
+        load_shelters(str(half))
+    camps = load_shelters("data/reference/cachar_shelters.csv")
+    assert camps and all(c.source.startswith("Cachar DDMA") for c in camps)
+    assert any(c.lat is None for c in camps) and any(c.lat is not None for c in camps)

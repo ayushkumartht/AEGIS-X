@@ -1,0 +1,1 @@
+{"source": "nominatim", "params": {"q": "Malugram", "format": "jsonv2", "viewbox": "92.74,24.88,92.84,24.78", "bounded": 1, "limit": 3}, "fetched_at": "2026-10-22T06:40:19.879088+00:00", "data": [{"name": "Malugram, Dudpatil, Silchar, Cachar, Assam, 788014, India", "lat": 24.8388052, "lon": 92.8063811, "osm": "way/310463726", "type": "tertiary"}]}

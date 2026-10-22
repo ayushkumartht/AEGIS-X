@@ -10,7 +10,9 @@ Method:
      end; for a bridge, its highest end plus deck clearance.
   4. Population is spread over 500 m cells in proportion to road length (a proxy for building
      density) and scaled to the district total from its config.
-  5. Shelters come from the hand-made CSV and from OSM schools, colleges and halls.
+  5. Shelters come from the district's shelter CSV and from OSM schools, colleges and halls.
+     Listed shelters without a position are put on high ground and labelled as such; assumed
+     assembly points top up the space when it covers less than half the population.
 """
 
 from __future__ import annotations
@@ -47,6 +49,9 @@ MIN_SHELTERS = 4
 MIN_SHELTER_CAPACITY_SHARE = 0.5
 ASSEMBLY_CAPACITY = 2000
 ASSEMBLY_SPACING_M = 800.0
+# Listed shelters with no known position (real camps not on any map) go on the highest quarter
+# of the town, at least this far apart; town schools are typically a few hundred metres apart.
+CAMP_SPACING_M = 300.0
 ELEVATION_FN = Callable[[list[tuple[float, float]]], list[float]]
 
 
@@ -155,7 +160,8 @@ def _shelter_candidates(features_raw: dict, records: Sequence[ShelterRecord]) ->
             out.append(dict(id=sid, name=name, lat=lat, lon=lon, capacity=cap, kind=kind, source=source))
 
     for r in records:
-        add(r.id, r.name, r.lat, r.lon, r.capacity, r.type, r.source)
+        if r.lat is not None and r.lon is not None:
+            add(r.id, r.name, r.lat, r.lon, r.capacity, r.type, r.source)
     for e in features_raw.get("elements", []):
         tags = e.get("tags", {})
         kind = tags.get("amenity")
@@ -233,17 +239,34 @@ def build_scenario(
         capacity = sum(s.capacity for s in shelters)
         return len(shelters) < MIN_SHELTERS or capacity < MIN_SHELTER_CAPACITY_SHARE * district.population_total
 
+    order = np.argsort(-node_elev)
+
+    def free_high_ground(pool: int, spacing: float):
+        """Among the `pool` highest nodes, those at least `spacing` from every shelter placed so far."""
+        for node in order[:pool]:
+            if all(np.hypot(*(node_xy[node] - node_xy[s.node])) > spacing for s in shelters):
+                yield int(node)
+
+    def place(node: int, sid: str, name: str, capacity: int, kind: str, source: str) -> None:
+        shelters.append(Shelter(sid, name, node, *map(float, node_latlon[node]), capacity,
+                                max(0.5, float(node_elev[node]) - base), kind, source))
+
+    # Real shelters whose building is not on the map: a known name and capacity, an assumed position.
+    unlocated = [r for r in shelter_records if r.lat is None or r.lon is None]
+    spots = free_high_ground(max(1, len(order) // 4), CAMP_SPACING_M)
+    for r in unlocated:
+        node = next(spots, None)
+        if node is None:
+            break
+        place(node, r.id, r.name, r.capacity, f"assumed_location_{r.type}",
+              f"{r.source}; position assumed: high ground in the town (the building is not on the map)")
+
     if short_of_space():
-        order = np.argsort(-node_elev)
-        for node in order[: max(200, len(order) // 4)]:
+        for node in free_high_ground(max(200, len(order) // 4), ASSEMBLY_SPACING_M):
             if not short_of_space():
                 break
-            if all(np.hypot(*(node_xy[node] - node_xy[s.node])) > ASSEMBLY_SPACING_M for s in shelters):
-                shelters.append(
-                    Shelter(f"assumed_{len(shelters)}", "Assumed assembly point (high ground)", int(node),
-                            *map(float, node_latlon[node]), ASSEMBLY_CAPACITY, max(0.5, float(node_elev[node]) - base),
-                            "assumed_assembly_point", "derived: high ground, not an official shelter")
-                )
+            place(node, f"assumed_{len(shelters)}", "Assumed assembly point (high ground)", ASSEMBLY_CAPACITY,
+                  "assumed_assembly_point", "derived: high ground, not an official shelter")
 
     staging = []
     for sp in district.staging_points:

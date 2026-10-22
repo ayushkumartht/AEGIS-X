@@ -26,8 +26,13 @@ const SLIDERS: { key: keyof WhatIf; label: string; min: number; max: number; ste
 function DataSources({ layers }: { layers: Layers }) {
   const meta = layers.metadata
   const text = (k: string) => (typeof meta[k] === 'string' ? (meta[k] as string) : null)
-  const shelters = layers.shelters.features
-  const assumed = shelters.filter((f) => String(f.properties.kind).startsWith('assumed')).length
+  const kinds = layers.shelters.features.map((f) => String(f.properties.kind))
+  const count = (test: (k: string) => boolean) => kinds.filter(test).length
+  const camps = count((k) => k === 'relief_camp')
+  const campsNear = count((k) => k === 'relief_camp_approx')
+  const campsPlaced = count((k) => k === 'assumed_location_relief_camp')
+  const assembly = count((k) => k === 'assumed_assembly_point')
+  const osmBuildings = kinds.length - camps - campsNear - campsPlaced - assembly
   const rows: [string, string, boolean][] = []
   if (meta.synthetic) {
     rows.push(['Everything', 'A made-up demo district for trying the tool offline. Not a real place.', true])
@@ -35,11 +40,16 @@ function DataSources({ layers }: { layers: Layers }) {
     rows.push(['Roads, bridges, river', 'OpenStreetMap', false])
     if (text('elevation_source')) rows.push(['Ground height', text('elevation_source')!, false])
     rows.push(['Rain and river flow', 'Open-Meteo ensemble forecast and GloFAS river discharge', false])
-    rows.push([
-      'Shelters',
-      `${shelters.length - assumed} buildings from OpenStreetMap (capacity estimated by building type)${assumed ? `; ${assumed} assumed assembly points added to cover the population` : ''}`,
-      true,
-    ])
+    const campTotal = camps + campsNear + campsPlaced
+    if (campTotal) {
+      rows.push([
+        'Relief camps',
+        `${campTotal} camps the district opened in the 2024 floods (Cachar flood report): ${camps} at their building, ${campsNear} at their neighbourhood, ${campsPlaced} not on any map so placed on high ground. Capacities from the 2024 average of 274 people per camp`,
+        true,
+      ])
+    }
+    if (osmBuildings) rows.push(['Other shelters', `${osmBuildings} public buildings from OpenStreetMap (capacity estimated by type)`, true])
+    if (assembly) rows.push(['Assembly points', `${assembly} assumed high-ground points so shelter space covers half the population`, true])
     if (text('population_note')) rows.push(['People', text('population_note')!, true])
     if (text('resources_note')) rows.push(['Boats and vehicles', text('resources_note')!, true])
   }

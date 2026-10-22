@@ -4,7 +4,7 @@ Date: 22 Oct 2026. Goal: AEGIS-X ko public website ki tarah live karna, sab feat
 
 This plan builds on [flood-final-status-and-demo.md](flood-final-status-and-demo.md) (what already works) and [final-implementation-plan.md](final-implementation-plan.md) (architecture).
 
-**Status (22 Oct 2026):** Phases 1, 2, 3 and 5 are built, tested and pushed. Phase 4.3 is built (the Situation tab lists every source and marks estimates). Phases 4.1 and 4.2 need official data that is not online in machine-readable form: the district's relief-camp list with capacities, its boat inventory, and ward-level population. Until then those inputs stay labelled as estimates. What is left for you: the go-live steps in section 4.
+**Status (22 Oct 2026):** Phases 1, 2, 3 and 5 are built, tested and pushed. Phase 4.3 is built (the Situation tab lists every source and marks estimates). Phase 4.2 is done as far as public data allows: the 50 Silchar relief camps named in the Cachar DDMA 2024 flood report are the shelter list (9 located on the map, 41 placed on high ground and labelled), with capacities from the report's 2024 average (274 people per camp). Phase 4.1: population uses the Census 2011 total (178,865); ward counts are not published and the WorldPop API timed out, so areas are still split by road length. The boat inventory is not published; 12 boats stay assumed, with the 2022 deployments cited in the note. What is left for you: the go-live steps in section 4.
 
 ---
 

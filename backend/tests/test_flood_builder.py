@@ -4,6 +4,7 @@ import pytest
 from aegis.domains.flood.builder import MIN_HAND_M, build_scenario
 from aegis.domains.flood.geojson import flood_state, scenario_layers
 from aegis.domains.flood.serialize import load_scenario, save_scenario
+from aegis.ingest.shelters import ShelterRecord
 from tests import fixtures
 
 
@@ -43,6 +44,18 @@ def test_shelters_from_osm_exclude_hospitals_and_get_assembly_points(scenario):
     assert len(scenario.shelters) >= 3
     assert any(s.kind == "assumed_assembly_point" for s in scenario.shelters)
     assert scenario.metadata["river_base_method"].startswith("25th percentile")
+
+
+def test_listed_shelters_without_a_position_go_on_high_ground_and_are_labelled():
+    records = [
+        ShelterRecord("c1", "Mapped Camp", 24.80, 92.71, 300, "relief_camp", "report p1"),
+        ShelterRecord("c2", "Unmapped Camp", None, None, 250, "relief_camp", "report p2"),
+    ]
+    s = build_scenario(fixtures.district(), fixtures.roads_raw(), fixtures.features_raw(), fixtures.elevations, records)
+    by_id = {x.id: x for x in s.shelters}
+    assert by_id["c1"].kind == "relief_camp" and by_id["c2"].kind == "assumed_location_relief_camp"
+    assert by_id["c2"].capacity == 250 and "position assumed" in by_id["c2"].source
+    assert by_id["c2"].hand_m >= np.percentile(s.node_hand_m, 75)  # placed on high ground
 
 
 def test_staging_points_are_snapped_to_graph_nodes(scenario):
