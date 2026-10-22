@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Link, useParams } from 'react-router-dom'
+import { Link, useParams, useSearchParams } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { api } from '@/api/client'
 import type { Layers } from '@/api/types'
@@ -14,6 +14,7 @@ import { MapView } from '@/features/map/MapView'
 import { Scene3D } from '@/features/map/Scene3D'
 import { OptionsTab } from '@/features/options/OptionsTab'
 import { PlanTab } from '@/features/plan/PlanTab'
+import { ResourcesTab } from '@/features/plan/ResourcesTab'
 import { RedTeamTab } from '@/features/redteam/RedTeamTab'
 import { ResultsTab } from '@/features/results/ResultsTab'
 import { useRunSim } from '@/features/results/useRunSim'
@@ -23,6 +24,7 @@ import { useConsole, type TabId } from '@/state/consoleStore'
 const TABS: [TabId, string][] = [
   ['situation', 'Situation'],
   ['plan', 'Plan'],
+  ['resources', 'Resources'],
   ['results', 'Results'],
   ['redteam', 'Red Team'],
   ['check', 'Check next'],
@@ -39,6 +41,23 @@ export default function ConsolePage({ initialDistrict: fixed }: { initialDistric
   useEffect(() => {
     if (initialDistrict && initialDistrict !== useConsole.getState().district) setDistrict(initialDistrict)
   }, [initialDistrict, setDistrict])
+
+  // The open tab lives in the address (?tab=redteam) so a console view can be linked and bookmarked.
+  const [search, setSearch] = useSearchParams()
+  useEffect(() => {
+    const wanted = search.get('tab')
+    if (wanted && TABS.some(([id]) => id === wanted)) setTab(wanted as TabId)
+    // read once per district: later tab changes are written to the address by changeTab
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialDistrict])
+  const changeTab = (v: string) => {
+    setTab(v as TabId)
+    setSearch((prev) => {
+      const next = new URLSearchParams(prev)
+      next.set('tab', v)
+      return next
+    }, { replace: true })
+  }
 
   const health = useQuery({ queryKey: ['health'], queryFn: api.health, retry: false })
   const districts = useQuery({ queryKey: ['districts'], queryFn: api.districts, retry: false })
@@ -78,6 +97,7 @@ export default function ConsolePage({ initialDistrict: fixed }: { initialDistric
         )}
         {data?.metadata.synthetic ? <Badge variant="secondary">Synthetic data</Badge> : null}
         <nav className="ml-auto flex gap-4 text-muted-foreground">
+          <Link className="hover:text-foreground" to="/command">Command Center</Link>
           <Link className="hover:text-foreground" to="/replay/silchar_2022">Replay</Link>
           <Link className="hover:text-foreground" to="/audit">Decision log</Link>
           <Link className="hover:text-foreground" to="/docs">Documentation</Link>
@@ -135,8 +155,8 @@ export default function ConsolePage({ initialDistrict: fixed }: { initialDistric
         </section>
 
         <aside className="flex min-h-0 flex-col border-l">
-          <Tabs value={tab} onValueChange={(v) => setTab(v as TabId)} className="flex min-h-0 flex-1 flex-col gap-0">
-            <TabsList className="m-2 grid grid-cols-6">
+          <Tabs value={tab} onValueChange={changeTab} className="flex min-h-0 flex-1 flex-col gap-0">
+            <TabsList className="m-2 grid grid-cols-7">
               {TABS.map(([id, label]) => <TabsTrigger key={id} value={id} className="px-1 text-xs">{label}</TabsTrigger>)}
             </TabsList>
             <div className="min-h-0 flex-1 overflow-y-auto px-4 pb-4">
@@ -144,6 +164,7 @@ export default function ConsolePage({ initialDistrict: fixed }: { initialDistric
                 <>
                   <TabsContent value="situation"><SituationTab layers={data} /></TabsContent>
                   <TabsContent value="plan"><PlanTab layers={data} running={sim.running} progress={sim.progress} onRun={sim.run} error={sim.error} /></TabsContent>
+                  <TabsContent value="resources"><ResourcesTab layers={data} /></TabsContent>
                   <TabsContent value="results"><ResultsTab /></TabsContent>
                   <TabsContent value="redteam"><RedTeamTab /></TabsContent>
                   <TabsContent value="check"><CheckNextTab /></TabsContent>

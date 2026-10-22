@@ -17,6 +17,8 @@ out/
 # committed so a deployed server starts without rebuilding from OpenStreetMap.
 data/*.db
 data/*.db-journal
+# Cache of live Command Center feeds (alert XML, river forecasts, geocoder answers): rebuilt at run time
+data/raw/ops/
 
 # IDE / Editor
 .vscode/

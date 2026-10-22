@@ -22,7 +22,7 @@ export default function LoginPage() {
     mutationFn: () => api.login(email.trim(), password),
     onSuccess: (session) => {
       signIn(session)
-      navigate(safeNext(params.get('next'), session.user.role === 'admin' ? '/command' : '/console/cachar'), { replace: true })
+      navigate(safeNext(params.get('next'), '/command'), { replace: true })
     },
   })
 
@@ -41,7 +41,7 @@ export default function LoginPage() {
           <div>
             <h1 className="text-xl font-semibold">Sign in</h1>
             <p className="mt-1 text-sm text-muted-foreground">
-              Officers sign in to record decisions and field reports. Admins also get the Command Center. Exploring a district and testing plans needs no account.
+              Officers sign in to record decisions and field reports and to ask the Command Center for a brief. Admins also get the admin page. Exploring districts and testing plans needs no account.
             </p>
           </div>
           <label className="block text-sm">

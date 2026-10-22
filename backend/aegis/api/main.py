@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Request
@@ -10,10 +11,11 @@ from fastapi.responses import JSONResponse
 
 from aegis import __version__
 from aegis.api import context
-from aegis.api.routers import admin, analysis, auth, districts, replay, simulate, workflow
+from aegis.api.routers import admin, analysis, auth, districts, ops, replay, simulate, workflow
 from aegis.auth import ensure_admin
 from aegis.exceptions import AegisError, DataError, OfflineError
 from aegis.llm.base import get_provider
+from aegis.ops import poller
 from aegis.settings import get_settings
 
 API_PREFIX = "/api/v1"
@@ -22,7 +24,10 @@ API_PREFIX = "/api/v1"
 @asynccontextmanager
 async def lifespan(_: FastAPI):
     ensure_admin()
+    task = asyncio.create_task(poller.run_forever()) if get_settings().aegis_ops_poll else None
     yield
+    if task:
+        task.cancel()
 
 
 def create_app() -> FastAPI:
@@ -59,7 +64,7 @@ def create_app() -> FastAPI:
             "districts": context.available_districts(),
         }
 
-    for router in (districts.router, simulate.router, analysis.router, workflow.router, replay.router, auth.router, admin.router):
+    for router in (districts.router, simulate.router, analysis.router, workflow.router, replay.router, auth.router, admin.router, ops.router):
         app.include_router(router, prefix=API_PREFIX)
     return app
 

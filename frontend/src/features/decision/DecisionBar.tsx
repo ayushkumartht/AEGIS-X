@@ -10,7 +10,7 @@ import { useConsole } from '@/state/consoleStore'
 type Action = 'accept' | 'edit' | 'reject'
 
 export function DecisionBar() {
-  const { district, plan, sim, narration } = useConsole()
+  const { district, plan, sim, narration, compare, redteam, voi, whatIf } = useConsole()
   const user = useAuth((s) => s.user)
   const location = useLocation()
   const [note, setNote] = useState('')
@@ -19,12 +19,24 @@ export function DecisionBar() {
 
   const save = useMutation({
     mutationFn: (action: Action) =>
-      api.addDecision({ district, action, plan: plan ?? {}, run_id: sim?.run_id ?? null, explanation: narration?.text ?? '', note }),
+      api.addDecision({ district, action, plan: plan ?? {}, run_id: sim?.run_id ?? null, explanation: narration?.text ?? '', note, evidence: captureEvidence() }),
     onSuccess: (r, action) => {
       setDone(`Decision #${r.id} recorded: ${action}.`)
       setNote('')
       qc.invalidateQueries({ queryKey: ['decisions'] })
     },
+  })
+  /** What the officer was looking at: kept with the decision so it can be reviewed later. */
+  const captureEvidence = () => ({
+    kind: 'console_plan_decision',
+    what_if: whatIf,
+    forecast: sim?.forecast ?? null,
+    result: sim ? { n_samples: sim.n_samples, summary: sim.summary, resilience_worst_10pct: sim.resilience_worst_10pct, metric_means: sim.metric_means } : null,
+    comparison: compare ? Object.fromEntries(Object.entries(compare.plans).map(([k, v]) => [k, v.summary])) : null,
+    red_team: redteam
+      ? { failure_rate: redteam.failure_rate, fail_below: redteam.fail_below, single_points_of_failure: redteam.single_points_of_failure.slice(0, 3), failure_boxes: redteam.failure_boxes.slice(0, 2).map((b) => b.description) }
+      : null,
+    check_next: voi ? voi.check_next.slice(0, 3) : null,
   })
   const allowed = canWrite(user)
   const disabled = !sim || save.isPending || !allowed

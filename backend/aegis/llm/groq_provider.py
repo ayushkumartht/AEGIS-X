@@ -4,7 +4,9 @@ import httpx
 
 from aegis.llm.base import post_json
 
-DEFAULT_MODEL = "llama-3.3-70b-versatile"
+# Groq retires models from time to time (llama-3.3-70b-versatile is gone). List the current ones with
+# GET https://api.groq.com/openai/v1/models and set LLM_MODEL to override this default.
+DEFAULT_MODEL = "openai/gpt-oss-120b"
 URL = "https://api.groq.com/openai/v1/chat/completions"
 
 

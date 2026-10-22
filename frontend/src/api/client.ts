@@ -2,17 +2,25 @@ import { useAuth } from '@/state/authStore'
 import type {
   Account,
   AuthUser,
+  Brief,
   Building,
   CompareResult,
   Conditions,
   DecisionRecord,
   DistrictInfo,
   Explanation,
+  FeedStatus,
   FloodState,
+  Hazard,
   Health,
+  Integrity,
   Layers,
+  OpsDistricts,
+  OpsEvents,
+  OpsMode,
   OptionsResult,
   Overview,
+  PlaceHit,
   Plan,
   RedTeamResult,
   ReplayResult,
@@ -102,6 +110,7 @@ export const api = {
     run_id: number | null
     explanation: string
     note: string
+    evidence?: Record<string, unknown>
   }) => post<{ id: number }>('/decisions', body),
   decisions: (district?: string) => request<DecisionRecord[]>(`/decisions${district ? `?district=${district}` : ''}`),
   replay: (event: string) => request<ReplayResult>(`/replay/${event}`),
@@ -112,6 +121,23 @@ export const api = {
   updateUser: (id: number, body: { name?: string; role?: Role; active?: boolean; password?: string }) =>
     send<Account>('PATCH', `/auth/users/${id}`, body),
   overview: () => request<Overview>('/admin/overview'),
+  integrity: () => request<Integrity>('/audit/integrity'),
+  opsHazards: () => request<Hazard[]>('/ops/hazards'),
+  opsFeeds: () => request<{ feeds: FeedStatus[]; offline: boolean }>('/ops/feeds'),
+  opsEvents: (q: { hazard?: string; days?: number } = {}) => {
+    const params = new URLSearchParams()
+    if (q.hazard) params.set('hazard', q.hazard)
+    if (q.days) params.set('days', String(q.days))
+    return request<OpsEvents>(`/ops/events?${params}`)
+  },
+  opsDistricts: () => request<OpsDistricts>('/ops/districts'),
+  opsModes: () => request<OpsMode[]>('/ops/modes'),
+  opsRefresh: (risk = false) => post<unknown>(`/ops/refresh?risk=${risk}`, {}),
+  opsBrief: (mode: string) => post<Brief>('/ops/brief', { mode }),
+  opsBriefs: () => request<Brief[]>('/ops/briefs'),
+  opsDecide: (recId: number, action: 'accept' | 'reject', note: string) =>
+    post<{ decision_id: number; status: string }>(`/ops/recommendations/${recId}/decision`, { action, note }),
+  opsSearch: (q: string) => request<PlaceHit[]>(`/ops/search?q=${encodeURIComponent(q)}`),
 }
 
 /**

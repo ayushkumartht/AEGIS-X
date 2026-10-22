@@ -52,6 +52,159 @@ export interface DistrictStatus extends DistrictInfo {
   beliefs?: Belief[]
 }
 
+/* ---------------------------------------------------------- Command Center */
+
+export type RiskLevel = 'normal' | 'watch' | 'warning' | 'severe' | 'unknown'
+
+export interface Gauge {
+  level_m: number
+  warning_m: number | null
+  danger_m: number | null
+  highest_m: number | null
+  trend: string
+}
+
+export interface OpsEvent {
+  uid: string
+  source: string
+  hazard: string
+  event: string
+  severity: string
+  urgency: string
+  certainty: string
+  sender: string
+  state: string
+  area: string
+  headline: string
+  description: string
+  lat: number | null
+  lon: number | null
+  place_method: string
+  district_id: string | null
+  effective: string
+  expires: string
+  sent: string
+  url: string
+  gauge: Gauge | null
+  active: boolean
+}
+
+export interface OpsEvents {
+  events: OpsEvent[]
+  geojson: { type: 'FeatureCollection'; features: GeoFeature[] }
+  counts: { total: number; located: number; active: number; by_severity: Record<string, number> }
+  week_over_week: { this_week: number; last_week: number; change_pct: number | null; note: string }
+}
+
+export interface FeedStatus {
+  name: string
+  last_attempt: string | null
+  last_success: string | null
+  last_error: string | null
+  items: number
+}
+
+export interface Hazard {
+  id: string
+  name: string
+  enabled: boolean
+  note: string
+}
+
+export interface Indicator {
+  computed_at: string
+  level: RiskLevel
+  reason?: string
+  forecast_dates?: string[]
+  flows?: Record<string, number>
+  exceed?: Record<string, number>
+  peak_day?: string
+  peak_median?: number
+  today_median?: number
+  members?: number
+  history?: { years?: string; n_years?: number; record_max?: number; record_year?: string }
+  cell?: { lat: number; lon: number; mean_flow: number; method: string }
+}
+
+export interface WatchedDistrict {
+  id: string
+  name: string
+  state: string
+  river: string
+  lat: number
+  lon: number
+  console: string | null
+  level: RiskLevel
+  indicator: Indicator | null
+  alerts: { event: string; severity: string; headline: string; gauge: Gauge | null }[]
+}
+
+export interface OpsDistricts {
+  districts: WatchedDistrict[]
+  rule: { probability: number; severe_return_years: number; warning_return_years: number; watch_return_years: number }
+}
+
+export interface OpsMode {
+  id: string
+  name: string
+  focus: string
+}
+
+export interface BriefItem {
+  text: string
+  evidence: string[]
+}
+
+export interface Recommendation {
+  id: number
+  status: 'proposed' | 'accepted' | 'rejected'
+  decided_by: string | null
+  action: string
+  why: string
+  gain: string
+  cost: string
+  risk: string
+  district_id: string | null
+  evidence: string[]
+}
+
+export interface EvidenceItem {
+  id: string
+  kind: string
+  title: string
+  district_id: string | null
+  data: Record<string, unknown>
+}
+
+export interface Brief {
+  id: number
+  created_at: string
+  mode: string
+  author: string
+  source: string
+  model: string
+  evidence: EvidenceItem[]
+  sections: { situation: BriefItem[]; worst: BriefItem[]; actions: unknown[]; check_first: BriefItem[]; uncertainty: BriefItem[] }
+  recommendations: Recommendation[]
+}
+
+export interface PlaceHit {
+  name: string
+  lat: number
+  lon: number
+  type: string
+}
+
+export interface Integrity {
+  status: 'valid' | 'valid_with_legacy_records' | 'invalid'
+  total: number
+  checked: number
+  legacy: number
+  broken: number[]
+  head: string | null
+  note: string
+}
+
 export interface Overview {
   system: {
     version: string
@@ -232,6 +385,8 @@ export interface DecisionRecord {
   run: { n_samples: number; seed: number | null; summary: Summary; forecast: Conditions['forecast'] } | null
   explanation: string
   note: string
+  evidence: Record<string, unknown>
+  hash: string | null
 }
 
 export interface ReplayStep {

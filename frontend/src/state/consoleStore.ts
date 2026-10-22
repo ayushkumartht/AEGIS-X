@@ -10,7 +10,7 @@ import type {
   WhatIf,
 } from '@/api/types'
 
-export type TabId = 'situation' | 'plan' | 'results' | 'redteam' | 'check' | 'options'
+export type TabId = 'situation' | 'plan' | 'resources' | 'results' | 'redteam' | 'check' | 'options'
 export type HighlightKind = 'bridge' | 'shelter' | 'cluster' | 'staging'
 export interface Highlight {
   kind: HighlightKind

@@ -543,11 +543,19 @@ export default function LandingPage() {
                 </Reveal>
               ))}
               <Reveal delay={0.4}>
-                <Button asChild className="rounded-full shadow-lg shadow-primary/25">
-                  <Link to="/demo">
-                    Open the live demo <ArrowRight />
-                  </Link>
-                </Button>
+                <div className="flex flex-wrap gap-3">
+                  <Button asChild className="rounded-full shadow-lg shadow-primary/25">
+                    <Link to="/command">
+                      Open the Command Center <ArrowRight />
+                    </Link>
+                  </Button>
+                  <Button asChild variant="outline" className="rounded-full">
+                    <Link to="/console/cachar">Silchar evacuation console</Link>
+                  </Button>
+                  <Button asChild variant="ghost" className="rounded-full">
+                    <Link to="/demo">Offline demo district</Link>
+                  </Button>
+                </div>
               </Reveal>
             </ol>
           </div>

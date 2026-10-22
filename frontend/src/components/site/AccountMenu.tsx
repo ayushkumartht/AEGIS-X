@@ -14,7 +14,7 @@ export function AccountMenu() {
   }
   return (
     <span className="flex items-center gap-4">
-      {user.role === 'admin' && <Link className="hover:text-foreground" to="/command">Command Center</Link>}
+      {user.role === 'admin' && <Link className="hover:text-foreground" to="/admin">Admin</Link>}
       <span className="text-foreground" title={user.email}>{user.name} ({user.role})</span>
       <button className="hover:text-foreground" onClick={signOut}>Sign out</button>
     </span>

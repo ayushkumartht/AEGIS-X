@@ -119,6 +119,18 @@ def refresh_risk(refresh: bool = False) -> dict:
     return {"ok": ok, "failed": failed}
 
 
+def warm_engine_cache() -> None:
+    """Pre-compute the tested-plan numbers for built districts so the first brief is quick."""
+    from aegis.ops import advisor
+
+    for d in watch.load_config().districts:
+        if d.console:
+            try:
+                advisor.engine_facts(d.id)
+            except Exception:  # noqa: BLE001 - a missing scenario must not stop the poller
+                logger.exception("could not warm the engine numbers for %s", d.id)
+
+
 async def run_forever() -> None:
     last_risk = 0.0
     while True:
@@ -126,6 +138,7 @@ async def run_forever() -> None:
             await asyncio.to_thread(refresh_alerts)
             if time.monotonic() - last_risk >= RISK_EVERY_S or last_risk == 0.0:
                 await asyncio.to_thread(refresh_risk)
+                await asyncio.to_thread(warm_engine_cache)
                 last_risk = time.monotonic()
         except Exception:  # noqa: BLE001 - keep polling whatever happens
             logger.exception("Command Center refresh failed")

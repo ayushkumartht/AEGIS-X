@@ -10,7 +10,9 @@ from __future__ import annotations
 
 import re
 import xml.etree.ElementTree as ET
+from concurrent.futures import ThreadPoolExecutor
 
+from aegis.exceptions import DataError
 from aegis.ingest.cache import cached_json
 from aegis.ingest.http import get_text
 from aegis.ops.hazards import hazard_of
@@ -18,6 +20,7 @@ from aegis.ops.hazards import hazard_of
 RSS_URL = "https://sachet.ndma.gov.in/cap_public_website/rss/rss_india.xml"
 CAP = "{urn:oasis:names:tc:emergency:cap:1.2}"
 CACHE = "ops"
+WORKERS = 8
 INDIA = (6.0, 38.0, 68.0, 98.0)  # lat_min, lat_max, lon_min, lon_max
 
 _LEVEL = re.compile(r"(?:flowing at|at) a level of ([\d.]+) ?m", re.I)
@@ -118,18 +121,17 @@ def parse_cap(xml_text: str, alert_id: str, url: str) -> dict | None:
     }
 
 
+def _load(item: dict) -> dict | None:
+    """One alert's CAP document, fetched once and then read from the cache; None if it cannot be read."""
+    try:
+        xml_text = cached_json(CACHE, "sachet_cap", {"id": item["id"]}, lambda: get_text(item["link"]))
+        return parse_cap(xml_text, item["id"], item["link"])
+    except (ET.ParseError, DataError):
+        return None  # one bad or unreachable document must not drop the others
+
+
 def fetch_alerts(limit: int | None = None) -> list[dict]:
-    """Latest alerts from the RSS, each CAP document fetched once and then read from the cache."""
-    items = parse_rss(get_text(RSS_URL))[:limit]
-    out = []
-    for item in items:
-        if not item["link"]:
-            continue
-        xml_text = cached_json(CACHE, "sachet_cap", {"id": item["id"]}, lambda link=item["link"]: get_text(link))
-        try:
-            event = parse_cap(xml_text, item["id"], item["link"])
-        except ET.ParseError:
-            continue
-        if event:
-            out.append(event)
-    return out
+    """Latest alerts from the RSS. The CAP documents are fetched in parallel (each takes a second or two)."""
+    items = [i for i in parse_rss(get_text(RSS_URL))[:limit] if i["link"]]
+    with ThreadPoolExecutor(max_workers=WORKERS) as pool:
+        return [e for e in pool.map(_load, items) if e]

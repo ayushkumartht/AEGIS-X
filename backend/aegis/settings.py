@@ -31,6 +31,9 @@ class Settings(BaseSettings):
     aegis_admin_password: str = ""
     aegis_token_hours: int = 12
 
+    # Command Center: refresh live alerts and river risk in the background (one process only).
+    aegis_ops_poll: bool = False
+
     # Public-site protection for the compute-heavy endpoints.
     aegis_rate_limit_per_min: int = 30
     aegis_max_heavy_jobs: int = 2
