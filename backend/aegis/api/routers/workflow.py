@@ -56,7 +56,8 @@ def add_decision(req: DecisionRequest, user: User = Depends(require(*WRITERS))):
     if req.run_id is not None and repo.get_run(req.run_id) is None:
         raise HTTPException(status_code=404, detail=f"Run {req.run_id} not found.")
     decision_id = repo.add_decision(
-        req.district, _signature(user), req.action, plan_to_dict(plan), req.run_id, req.explanation, req.note
+        req.district, _signature(user), req.action, plan_to_dict(plan), req.run_id, req.explanation, req.note,
+        req.evidence,
     )
     return {"id": decision_id}
 
@@ -64,6 +65,12 @@ def add_decision(req: DecisionRequest, user: User = Depends(require(*WRITERS))):
 @router.get("/decisions")
 def decisions(district: str | None = None):
     return repo.list_decisions(district)
+
+
+@router.get("/audit/integrity")
+def audit_integrity():
+    """Recompute the decision hash chain and report any decision that no longer verifies."""
+    return repo.audit_integrity()
 
 
 def _signature(user: User) -> str:
