@@ -137,29 +137,4 @@ Uncertain inputs: `rainfall_mm`, `resource_availability_pct`,
 | Optimization | `optimizer.py` | Random search + Pareto-front (non-dominated sorting) across objectives (NSGA-II via pymoo is the documented upgrade) |
 | Resilience (not just average) | `montecarlo.py: MonteCarloBatch.resilience()` | Mean outcome of the worst 10% of sampled futures |
 
-The LLM's job in this system is to **narrate** what these functions find
-("Bridge B is a single point of failure because...") — it never decides
-the finding itself. That line matters when a judge asks "is this just an
-LLM talking?"
-
-## Build order (each step leaves a working demo)
-
-1. ✅ Core engine interfaces + Monte Carlo + flood grid/BFS/evacuation simulate()
-2. ✅ Plan comparison on identical sampled futures
-3. ⬜ Live demo controls (weather/resources/comms sliders) wired to `/flood/monte-carlo`
-4. ✅ Red Team: worst-case attribution + single-point-of-failure
-5. ⬜ Replace Pearson correlation with real Sobol indices (SALib) once ranges are stable
-6. ✅ Optimizer (random search + Pareto front); upgrade to NSGA-II (pymoo) if time allows
-7. ⬜ Fill in `domains/fire` and `domains/crowd` (stubs already match the interface) + calibrate flood against a real event (Chennai 2015 / Kerala 2018) for a credibility check
-
-## Honest limitations (say these out loud before a judge asks)
-
-- Grid world, not a real road network — swap for OSMnx + a real DEM for production.
-- Flood-rise and evacuation-capacity constants ([backend/aegis/domains/flood/model.py](backend/aegis/domains/flood/model.py) top) are
-  illustrative, not calibrated against a real event yet.
-- Sensitivity analysis uses Pearson correlation, a simplified stand-in
-  for Sobol indices (documented in `sensitivity.py`).
-- Optimizer uses random search + Pareto front, a simplified stand-in for
-  NSGA-II (documented in `optimizer.py`).
-- Fire and crowd modules are interface-matching stubs, not implemented.
 
