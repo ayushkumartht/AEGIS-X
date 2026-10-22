@@ -1,13 +1,18 @@
+import {
+  ArrowDownToLine, BadgeCheck, Bell, Building2, DoorOpen, Flag, Home, Megaphone, MessageSquareText, Play, Route, ShieldCheck, Ship, Siren, Truck, Users,
+  type LucideIcon,
+} from 'lucide-react'
 import type { Layers, Plan } from '@/api/types'
 import { Button } from '@/components/ui/button'
+import { ActionButton, Chip, Meter, Panel, Stepper } from '@/components/viz/kit'
 import { useConsole } from '@/state/consoleStore'
 
-const CHANNELS = [
-  ['siren', 'Siren'],
-  ['sms', 'SMS alert'],
-  ['loudspeaker', 'Loudspeaker'],
-  ['door_to_door', 'Door to door'],
-] as const
+const CHANNELS: [string, string, LucideIcon][] = [
+  ['siren', 'Siren', Siren],
+  ['sms', 'SMS alert', MessageSquareText],
+  ['loudspeaker', 'Loudspeaker', Megaphone],
+  ['door_to_door', 'Door to door', DoorOpen],
+]
 
 type Props = { layers: Layers; running: boolean; progress: number; onRun: () => void; error: string | null }
 
@@ -20,9 +25,11 @@ export function PlanTab({ layers, running, progress, onRun, error }: Props) {
   if (!plan) return <p className="text-sm text-muted-foreground">Loading the baseline plan.</p>
 
   const clusters = layers.clusters.features.map((f) => ({ id: String(prop(f, 'id')), name: String(prop(f, 'name')), pop: Number(prop(f, 'population')), hand: Number(prop(f, 'hand')) }))
-  const shelters = layers.shelters.features.map((f) => ({ id: String(prop(f, 'id')), name: String(prop(f, 'name')), cap: Number(prop(f, 'capacity')) }))
+  const shelters = layers.shelters.features.map((f) => ({ id: String(prop(f, 'id')), name: String(prop(f, 'name')), cap: Number(prop(f, 'capacity')), kind: String(prop(f, 'kind')) }))
   const staging = layers.staging.features.map((f) => ({ id: String(prop(f, 'id')), name: String(prop(f, 'name')) }))
   const lowest = [...clusters].sort((a, b) => a.hand - b.hand).slice(0, 5)
+  const maxPop = Math.max(...clusters.map((c) => c.pop), 1)
+  const maxCap = Math.max(...shelters.map((s) => s.cap), 1)
 
   const toggle = (list: string[] | undefined, id: string) => {
     const l = list ?? []
@@ -31,107 +38,121 @@ export function PlanTab({ layers, running, progress, onRun, error }: Props) {
   const setNumber = (key: 'boats_at' | 'vehicles_at', id: string, n: number) => patch({ [key]: { ...(plan[key] ?? {}), [id]: Math.max(0, Math.round(n) || 0) } } as Plan)
   const sum = (m?: Record<string, number>) => Object.values(m ?? {}).reduce((a, b) => a + b, 0)
   const sortBy = (cmp: (a: (typeof clusters)[number], b: (typeof clusters)[number]) => number) => patch({ priority: [...clusters].sort(cmp).map((c) => c.id) })
+  const start = plan.start_hour ?? 0
+  const openIds = plan.open_shelters ?? []
+  const openCap = shelters.filter((s) => openIds.includes(s.id)).reduce((a, s) => a + s.cap, 0)
+  const timing = start <= 6 ? 'Early: more effort and fuller shelters, but roads are still open.' : start <= 18 ? 'Balanced: enough warning without moving people too soon.' : 'Late: roads may already be cut by the time people start.'
 
   return (
-    <div className="space-y-5 text-sm">
-      <section>
-        <div className="flex justify-between">
-          <label htmlFor="start" className="font-semibold">Start moving people at hour</label>
-          <span className="tabular-nums">{plan.start_hour ?? 0} h</span>
+    <div className="space-y-3 text-sm">
+      <Panel icon={Flag} title="When to start moving people" hint="Too early wastes effort and fills shelters; too late and roads are already cut.">
+        <div className="flex items-baseline justify-between">
+          <label htmlFor="start" className="text-xs font-medium">Start at hour</label>
+          <span className="rounded-md bg-primary/10 px-2 py-0.5 text-base font-semibold tabular-nums text-primary">{start} h</span>
         </div>
-        <input id="start" type="range" className="w-full accent-primary" min={0} max={36} step={1} value={plan.start_hour ?? 0} onChange={(e) => patch({ start_hour: Number(e.target.value) })} />
-        <p className="text-muted-foreground">Too early wastes effort and fills shelters; too late and roads are already cut.</p>
-      </section>
+        <input id="start" type="range" className="mt-1 w-full accent-primary" min={0} max={36} step={1} value={start} onChange={(e) => patch({ start_hour: Number(e.target.value) })} />
+        <div className="flex justify-between text-[10px] text-muted-foreground"><span>now</span><span>+12 h</span><span>+24 h</span><span>+36 h</span></div>
+        <p className="mt-2 rounded-lg bg-muted px-2.5 py-1.5 text-xs">{timing}</p>
+      </Panel>
 
-      <section>
-        <h3 className="font-semibold">Who goes first</h3>
-        <div className="mt-1 flex gap-2">
-          <Button size="sm" variant="outline" onClick={() => sortBy((a, b) => b.pop - a.pop)}>Largest area first</Button>
-          <Button size="sm" variant="outline" onClick={() => sortBy((a, b) => a.hand - b.hand)}>Lowest ground first</Button>
-        </div>
-        <ol className="mt-2 list-decimal pl-5 text-muted-foreground">
-          {(plan.priority ?? []).slice(0, 6).map((id) => (
-            <li key={id}>
-              <button className="hover:underline" onClick={() => setHighlight({ kind: 'cluster', id })}>
-                {clusters.find((c) => c.id === id)?.name ?? id} ({clusters.find((c) => c.id === id)?.pop} people)
-              </button>
-            </li>
-          ))}
+      <Panel
+        icon={Users}
+        title="Who goes first"
+        hint="The order areas are cleared in. Click an area to find it on the map."
+        action={
+          <div className="flex gap-1">
+            <Button size="xs" variant="soft" onClick={() => sortBy((a, b) => b.pop - a.pop)}>Largest first</Button>
+            <Button size="xs" variant="soft" onClick={() => sortBy((a, b) => a.hand - b.hand)}>Lowest ground</Button>
+          </div>
+        }
+      >
+        <ol className="space-y-1.5">
+          {(plan.priority ?? []).slice(0, 6).map((id, i) => {
+            const c = clusters.find((x) => x.id === id)
+            return (
+              <li key={id}>
+                <button className="flex w-full items-center gap-2.5 rounded-lg border px-2.5 py-1.5 text-left transition-colors hover:border-primary/50 hover:bg-accent" onClick={() => setHighlight({ kind: 'cluster', id })}>
+                  <span className="inline-flex size-5 shrink-0 items-center justify-center rounded-full bg-primary text-[10px] font-bold text-primary-foreground">{i + 1}</span>
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate text-xs font-medium">{c?.name ?? id}</span>
+                    <Meter value={c?.pop ?? 0} max={maxPop} tone="primary" className="mt-0.5" />
+                  </span>
+                  <span className="text-xs tabular-nums text-muted-foreground">{c?.pop.toLocaleString()}</span>
+                </button>
+              </li>
+            )
+          })}
         </ol>
-      </section>
+      </Panel>
 
-      <section>
-        <h3 className="font-semibold">Boats and vehicles ({sum(plan.boats_at)} boats, {sum(plan.vehicles_at)} vehicles)</h3>
-        <table className="mt-1 w-full">
-          <thead className="text-left text-muted-foreground"><tr><th className="font-normal">Base</th><th className="font-normal">Boats</th><th className="font-normal">Vehicles</th></tr></thead>
-          <tbody>
-            {staging.map((s) => (
-              <tr key={s.id}>
-                <td><button className="hover:underline" onClick={() => setHighlight({ kind: 'staging', id: s.id })}>{s.name}</button></td>
-                {(['boats_at', 'vehicles_at'] as const).map((k) => (
-                  <td key={k}>
-                    <input type="number" min={0} className="w-16 rounded border bg-background px-1 py-0.5" aria-label={`${k === 'boats_at' ? 'Boats' : 'Vehicles'} at ${s.name}`} value={plan[k]?.[s.id] ?? 0} onChange={(e) => setNumber(k, s.id, Number(e.target.value))} />
-                  </td>
-                ))}
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </section>
-
-      <section>
-        <h3 className="font-semibold">Shelters in use</h3>
-        <ul className="mt-1 grid grid-cols-1 gap-1">
-          {shelters.map((s) => (
-            <li key={s.id}>
-              <label className="inline-flex items-center gap-2">
-                <input type="checkbox" checked={(plan.open_shelters ?? []).includes(s.id)} onChange={() => patch({ open_shelters: toggle(plan.open_shelters, s.id) })} />
-                <button className="hover:underline" onClick={() => setHighlight({ kind: 'shelter', id: s.id })}>{s.name}</button>
-                <span className="text-muted-foreground">capacity {s.cap}</span>
-              </label>
+      <Panel icon={Ship} tone="flood" title="Boats and vehicles" hint={`${sum(plan.boats_at)} boats and ${sum(plan.vehicles_at)} vehicles are placed.`}>
+        <ul className="space-y-2">
+          {staging.map((s) => (
+            <li key={s.id} className="rounded-lg border p-2.5">
+              <button className="mb-2 flex items-center gap-1.5 text-xs font-semibold hover:underline" onClick={() => setHighlight({ kind: 'staging', id: s.id })}>
+                <Building2 className="size-3.5 text-[#7c3aed]" aria-hidden />{s.name}
+              </button>
+              <div className="flex flex-wrap items-center gap-x-5 gap-y-2">
+                <span className="inline-flex items-center gap-2 text-xs"><Ship className="size-4 text-flood" aria-hidden /><Stepper label={`boats at ${s.name}`} value={plan.boats_at?.[s.id] ?? 0} onChange={(n) => setNumber('boats_at', s.id, n)} /></span>
+                <span className="inline-flex items-center gap-2 text-xs"><Truck className="size-4 text-muted-foreground" aria-hidden /><Stepper label={`vehicles at ${s.name}`} value={plan.vehicles_at?.[s.id] ?? 0} onChange={(n) => setNumber('vehicles_at', s.id, n)} /></span>
+              </div>
             </li>
           ))}
         </ul>
-      </section>
+      </Panel>
 
-      <section>
-        <h3 className="font-semibold">Protect the lowest areas</h3>
-        <p className="text-muted-foreground">Guard or raise these so they flood about a metre later.</p>
-        {lowest.map((c) => (
-          <label key={c.id} className="mr-4 inline-flex items-center gap-1.5">
-            <input type="checkbox" checked={(plan.protected ?? []).includes(`cluster:${c.id}`)} onChange={() => patch({ protected: toggle(plan.protected, `cluster:${c.id}`) })} />
-            {c.name}
-          </label>
-        ))}
-      </section>
+      <Panel icon={Home} tone="safe" title="Shelters in use" hint={`${openIds.length} of ${shelters.length} open, ${openCap.toLocaleString()} places.`}>
+        <ul className="max-h-64 space-y-1 overflow-y-auto pr-1">
+          {shelters.map((s) => {
+            const on = openIds.includes(s.id)
+            const assumed = s.kind.startsWith('assumed')
+            return (
+              <li key={s.id} className={`flex items-center gap-2.5 rounded-lg border px-2.5 py-1.5 ${on ? 'border-safe/40 bg-safe/5' : 'opacity-70'}`}>
+                <input type="checkbox" className="size-4 accent-[var(--safe)]" checked={on} onChange={() => patch({ open_shelters: toggle(plan.open_shelters, s.id) })} aria-label={`Use ${s.name}`} />
+                <span className="min-w-0 flex-1">
+                  <button className="block max-w-full truncate text-left text-xs font-medium hover:underline" onClick={() => setHighlight({ kind: 'shelter', id: s.id })}>{s.name}</button>
+                  <Meter value={s.cap} max={maxCap} tone="safe" className="mt-0.5" />
+                </span>
+                <span className="text-right text-[11px] leading-tight text-muted-foreground"><span className="tabular-nums">{s.cap}</span>{assumed && <span className="block text-[9px]">assumed</span>}</span>
+              </li>
+            )
+          })}
+        </ul>
+      </Panel>
+
+      <Panel icon={ShieldCheck} title="Protect the lowest areas" hint="Guard or raise these so they flood about a metre later.">
+        <div className="flex flex-wrap gap-1.5">
+          {lowest.map((c) => (
+            <Chip key={c.id} icon={ArrowDownToLine} on={(plan.protected ?? []).includes(`cluster:${c.id}`)} onClick={() => patch({ protected: toggle(plan.protected, `cluster:${c.id}`) })}>{c.name}</Chip>
+          ))}
+        </div>
+      </Panel>
 
       {layers.bridges.length > 0 && (
-        <section>
-          <h3 className="font-semibold">Do not route over</h3>
-          {layers.bridges.map((b) => (
-            <label key={b.id} className="mr-4 inline-flex items-center gap-1.5">
-              <input type="checkbox" checked={(plan.route_avoid ?? []).includes(b.id)} onChange={() => patch({ route_avoid: toggle(plan.route_avoid, b.id) })} />
-              {b.name}
-            </label>
-          ))}
-        </section>
+        <Panel icon={Route} title="Do not route over" hint="Keep evacuation traffic off these bridges.">
+          <div className="flex flex-wrap gap-1.5">
+            {layers.bridges.map((b) => (
+              <Chip key={b.id} icon={Route} on={(plan.route_avoid ?? []).includes(b.id)} onClick={() => patch({ route_avoid: toggle(plan.route_avoid, b.id) })}>{b.name}</Chip>
+            ))}
+          </div>
+        </Panel>
       )}
 
-      <section>
-        <h3 className="font-semibold">How people are warned</h3>
-        {CHANNELS.map(([id, label]) => (
-          <label key={id} className="mr-4 inline-flex items-center gap-1.5">
-            <input type="checkbox" checked={(plan.warning_channels ?? []).includes(id)} onChange={() => patch({ warning_channels: toggle(plan.warning_channels, id) })} />
-            {label}
-          </label>
-        ))}
-      </section>
+      <Panel icon={Bell} tone="warn" title="How people are warned" hint="More channels reach more people, and reach them sooner.">
+        <div className="flex flex-wrap gap-1.5">
+          {CHANNELS.map(([id, label, Icon]) => (
+            <Chip key={id} icon={Icon} on={(plan.warning_channels ?? []).includes(id)} onClick={() => patch({ warning_channels: toggle(plan.warning_channels, id) })}>{label}</Chip>
+          ))}
+        </div>
+      </Panel>
 
-      <div className="sticky bottom-0 -mx-1 border-t bg-background/95 px-1 py-3 backdrop-blur">
-        <Button className="w-full" onClick={onRun} disabled={running}>
-          {running ? `Testing on 500 futures ${Math.round(progress * 100)}%` : 'Test this plan on 500 futures'}
-        </Button>
-        {error && <p className="mt-2 text-risk" role="alert">{error}</p>}
+      <div className="sticky bottom-0 -mx-3 border-t bg-card/95 px-3 py-3 shadow-[0_-6px_14px_-10px_rgb(15_23_42/0.3)] backdrop-blur">
+        <ActionButton size="lg" className="w-full" icon={running ? undefined : Play} busy={running} busyText={`Testing on 500 futures ${Math.round(progress * 100)}%`} onClick={onRun}>
+          Test this plan on 500 futures
+        </ActionButton>
+        {running && <Meter value={progress} className="mt-2" />}
+        {!running && <p className="mt-1.5 flex items-center justify-center gap-1 text-[11px] text-muted-foreground"><BadgeCheck className="size-3" aria-hidden />About 6 seconds. Same inputs give the same result.</p>}
+        {error && <p className="mt-2 text-xs text-risk" role="alert">{error}</p>}
       </div>
     </div>
   )

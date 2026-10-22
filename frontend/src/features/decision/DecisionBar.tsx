@@ -1,31 +1,19 @@
 import { useState } from 'react'
-import { Link, useLocation } from 'react-router-dom'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { Check, CircleCheck, Hand, PencilLine, X } from 'lucide-react'
 import { api } from '@/api/client'
-import { Button } from '@/components/ui/button'
+import { ActionButton } from '@/components/viz/kit'
 import { fmtPct } from '@/lib/formatters'
-import { canWrite, useAuth } from '@/state/authStore'
 import { useConsole } from '@/state/consoleStore'
 
 type Action = 'accept' | 'edit' | 'reject'
 
 export function DecisionBar() {
   const { district, plan, sim, narration, compare, redteam, voi, whatIf } = useConsole()
-  const user = useAuth((s) => s.user)
-  const location = useLocation()
   const [note, setNote] = useState('')
   const [done, setDone] = useState<string | null>(null)
   const qc = useQueryClient()
 
-  const save = useMutation({
-    mutationFn: (action: Action) =>
-      api.addDecision({ district, action, plan: plan ?? {}, run_id: sim?.run_id ?? null, explanation: narration?.text ?? '', note, evidence: captureEvidence() }),
-    onSuccess: (r, action) => {
-      setDone(`Decision #${r.id} recorded: ${action}.`)
-      setNote('')
-      qc.invalidateQueries({ queryKey: ['decisions'] })
-    },
-  })
   /** What the officer was looking at: kept with the decision so it can be reviewed later. */
   const captureEvidence = () => ({
     kind: 'console_plan_decision',
@@ -38,40 +26,55 @@ export function DecisionBar() {
       : null,
     check_next: voi ? voi.check_next.slice(0, 3) : null,
   })
-  const allowed = canWrite(user)
-  const disabled = !sim || save.isPending || !allowed
+
+  const save = useMutation({
+    mutationFn: (action: Action) =>
+      api.addDecision({ district, action, plan: plan ?? {}, run_id: sim?.run_id ?? null, explanation: narration?.text ?? '', note, evidence: captureEvidence() }),
+    onSuccess: (r, action) => {
+      setDone(`Decision #${r.id} recorded: ${action}.`)
+      setNote('')
+      qc.invalidateQueries({ queryKey: ['decisions'] })
+      qc.invalidateQueries({ queryKey: ['integrity'] })
+    },
+  })
+  const disabled = !sim
   const decide = (a: Action) => {
     setDone(null)
     save.mutate(a)
   }
 
   return (
-    <div className="flex flex-wrap items-center gap-3 border-t bg-card px-4 py-3 text-sm">
-      <div className="min-w-48 flex-1">
-        {sim ? (
-          <span>
-            Current plan: <strong>{fmtPct(sim.summary.mean, 0)}</strong> on average, <strong>{fmtPct(sim.resilience_worst_10pct, 0)}</strong> on a bad day.
-          </span>
-        ) : (
-          <span className="text-muted-foreground">Test a plan to decide on it. Nothing is applied without your decision.</span>
-        )}
-        {done && <div className="text-safe" role="status">{done}</div>}
-        {save.isError && <div className="text-risk" role="alert">{String(save.error)}</div>}
+    <div className="flex flex-wrap items-center gap-x-5 gap-y-2 border-t bg-card px-4 py-3 text-sm shadow-[0_-4px_12px_-8px_rgb(15_23_42/0.25)]">
+      <div className="flex min-w-60 flex-1 items-center gap-3">
+        <span className="inline-flex size-9 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary"><Hand className="size-4" aria-hidden /></span>
+        <div className="min-w-0">
+          {sim ? (
+            <div className="leading-tight">
+              <span className="font-semibold">{fmtPct(sim.summary.mean, 0)}</span> evacuated on average, <span className="font-semibold">{fmtPct(sim.resilience_worst_10pct, 0)}</span> on a bad day.
+              <div className="text-xs text-muted-foreground">Nothing is applied until you decide. Your decision is logged with the evidence.</div>
+            </div>
+          ) : (
+            <div className="leading-tight">
+              <span className="font-semibold">Your decision</span>
+              <div className="text-xs text-muted-foreground">Test a plan first. Nothing is applied without your decision.</div>
+            </div>
+          )}
+          {done && <div className="mt-0.5 flex items-center gap-1 text-xs font-medium text-safe" role="status"><CircleCheck className="size-3.5" aria-hidden />{done}</div>}
+          {save.isError && <div className="text-xs text-risk" role="alert">{String(save.error.message)}</div>}
+        </div>
       </div>
-      {allowed ? (
-        <>
-          <span className="text-muted-foreground">Signed as <strong className="text-foreground">{user?.name}</strong></span>
-          <input className="w-56 rounded-lg border bg-background px-2 py-1.5" aria-label="Note for the log" placeholder="Note (optional)" value={note} onChange={(e) => setNote(e.target.value)} maxLength={500} />
-        </>
-      ) : (
-        <span className="text-muted-foreground">
-          <Link className="font-medium text-foreground underline" to={`/login?next=${encodeURIComponent(location.pathname)}`}>Sign in</Link> as an officer to record a decision.
-        </span>
-      )}
+      <input
+        className="w-56 rounded-lg border bg-background px-3 py-2 text-sm shadow-xs placeholder:text-muted-foreground"
+        aria-label="Note for the log"
+        placeholder="Note for the log (optional)"
+        value={note}
+        maxLength={500}
+        onChange={(e) => setNote(e.target.value)}
+      />
       <div className="flex gap-2">
-        <Button onClick={() => decide('accept')} disabled={disabled}>Accept</Button>
-        <Button variant="outline" onClick={() => decide('edit')} disabled={disabled}>Edit and accept</Button>
-        <Button variant="outline" onClick={() => decide('reject')} disabled={disabled}>Reject</Button>
+        <ActionButton variant="success" icon={Check} busy={save.isPending && save.variables === 'accept'} onClick={() => decide('accept')} disabled={disabled || save.isPending}>Accept</ActionButton>
+        <ActionButton variant="outline" icon={PencilLine} onClick={() => decide('edit')} disabled={disabled || save.isPending}>Edit and accept</ActionButton>
+        <ActionButton variant="danger" icon={X} onClick={() => decide('reject')} disabled={disabled || save.isPending}>Reject</ActionButton>
       </div>
     </div>
   )
