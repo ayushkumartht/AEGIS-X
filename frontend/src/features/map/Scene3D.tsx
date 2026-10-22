@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { useMutation, useQuery } from '@tanstack/react-query'
+import { useQuery } from '@tanstack/react-query'
 import * as THREE from 'three'
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js'
 import { Sky } from 'three/examples/jsm/objects/Sky.js'
@@ -7,9 +7,9 @@ import { Water } from 'three/examples/jsm/objects/Water.js'
 import { CSS2DObject, CSS2DRenderer } from 'three/examples/jsm/renderers/CSS2DRenderer.js'
 import { api } from '@/api/client'
 import type { FloodState, Layers, TerrainGrid, Trace } from '@/api/types'
-import { Button } from '@/components/ui/button'
 import { useConsole } from '@/state/consoleStore'
 import { InfoCard, type CardData, type CardKind } from './InfoCard'
+import { interp, PlaybackPanel, stepClock, useTracePlayback } from './playback'
 import { boatGeometry, bridgeGroup, paddedBounds, personGeometry, roadMesh, TERRAIN_PAD, terrainMesh, treesMesh, waterNormals } from './scene/builders'
 import { GeoFrame, lonLat } from './scene/geo'
 import { housesMesh } from './scene/houses'
@@ -25,7 +25,6 @@ interface Props {
 }
 
 const VEX = 1 // true scale: ground, water, houses and bridges share the same vertical scale
-const HOURS_PER_SECOND = 1.6
 const MAX_BOATS = 48
 const MAX_PEOPLE = 500
 const CUT = new THREE.Color('#ef4444')
@@ -42,45 +41,28 @@ function label(text: string, cls: string) {
 
 const abbreviate = (n: number) => (n >= 10000 ? `${Math.round(n / 1000)}k` : n >= 1000 ? `${(n / 1000).toFixed(1)}k` : String(Math.round(n)))
 
-function interp(series: number[], t: number) {
-  const i = Math.min(Math.max(Math.floor(t), 0), series.length - 1)
-  const j = Math.min(i + 1, series.length - 1)
-  return series[i] + (series[j] - series[i]) * (t - i)
-}
-
 export function Scene3D({ layers, terrain, flood, level }: Props) {
   const box = useRef<HTMLDivElement>(null)
-  const { district, plan, whatIf, highlight, setHighlight } = useConsole()
+  const { district, whatIf, highlight, setHighlight } = useConsole()
   const buildings = useQuery({ queryKey: ['buildings', district], queryFn: () => api.buildings(district), retry: false })
   const [hover, setHover] = useState<{ card: CardData; x: number; y: number } | null>(null)
   const [overlay, setOverlay] = useState(true)
   const [status, setStatus] = useState('Building the scene')
   const [houseNote, setHouseNote] = useState('')
   const [lifeNote, setLifeNote] = useState('')
-  const [trace, setTrace] = useState<Trace | null>(null)
-  const [playing, setPlaying] = useState(false)
-  const [hour, setHour] = useState(0)
+  const pb = useTracePlayback()
+  const { trace, playing, hour } = pb
 
   // everything the render loop reads lives in refs so React re-renders do not rebuild the scene
-  const live = useRef({ level, trace: null as Trace | null, playing: false, t: 0, overlay: true, flood: undefined as FloodState | undefined, lvlNow: level })
+  const live = useRef({ level, trace: null as Trace | null, playing: false, clock: pb.t, overlay: true, flood: undefined as FloodState | undefined, lvlNow: level })
   live.current.level = level
   live.current.trace = trace
   live.current.playing = playing
   live.current.overlay = overlay
   live.current.flood = flood
-  const setHourRef = useRef(setHour)
-  setHourRef.current = setHour
+  const setHourRef = useRef(pb.setHour)
+  setHourRef.current = pb.setHour
   const sceneApi = useRef<{ focus: (h: { kind: CardKind; id: string } | null) => void } | null>(null)
-
-  const play = useMutation({
-    mutationFn: (pick: 'median' | 'bad_day') => api.trace({ district, plan: plan ?? undefined, what_if: whatIf, pick, n_samples: 150, seed: 42 }),
-    onSuccess: (t) => {
-      live.current.t = 0
-      setHour(0)
-      setTrace(t)
-      setPlaying(true)
-    },
-  })
 
   /** Details of a map object, computed from the district data, the plan and the last simulation. */
   const cardFor = (kind: CardKind, id: string, levelM: number): CardData | null => {
@@ -518,15 +500,10 @@ export function Scene3D({ layers, terrain, flood, level }: Props) {
       water.material.uniforms.time.value += dt * 0.6
       let lvl = L.level
       let hourIdx = 0
+      const now = L.trace ? stepClock(L.clock, L.trace, L.playing, dt, setHourRef.current) : 0
       if (L.trace) {
-        const last = L.trace.level.length - 1
-        if (L.playing) {
-          L.t = Math.min(L.t + dt * HOURS_PER_SECOND, last)
-          if (L.t >= last) setHourRef.current(last)
-        }
-        lvl = interp(L.trace.level, L.t)
-        hourIdx = Math.floor(L.t)
-        if (Math.floor(L.t) !== Math.floor(L.t - dt * HOURS_PER_SECOND)) setHourRef.current(hourIdx)
+        lvl = interp(L.trace.level, now)
+        hourIdx = Math.floor(now)
       }
       L.lvlNow = lvl
       const targetY = fr.y(Math.max(lvl, 0.05))
@@ -542,7 +519,7 @@ export function Scene3D({ layers, terrain, flood, level }: Props) {
       // boats shuttle between their base and the flooded areas they serve this hour
       let used = 0
       let walkers = 0
-      if (L.trace && L.t >= L.trace.boats_on_h) {
+      if (L.trace && now >= L.trace.boats_on_h) {
         const row = L.trace.by_boat[Math.min(hourIdx, L.trace.by_boat.length - 1)] ?? []
         const targets = row.map((v, k) => [v, k]).filter(([v]) => v > 0.5).sort((a, b) => b[0] - a[0]).map(([, k]) => k)
         const fleet = Math.min(MAX_BOATS, Math.round(L.trace.boats_total * (L.trace.conditions.boat_availability_pct ?? 1)))
@@ -552,7 +529,7 @@ export function Scene3D({ layers, terrain, flood, level }: Props) {
             const k = targets[i % targets.length]
             const to = clusterPos[k]
             const from = baseList.reduce((a, b) => (a.distanceToSquared(to) < b.distanceToSquared(to) ? a : b))
-            const phase = (L.t * 1.3 + i * 0.37) % 1
+            const phase = (now * 1.3 + i * 0.37) % 1
             const s = phase < 0.5 ? phase * 2 : (1 - phase) * 2
             const p = new THREE.Vector3().lerpVectors(from, to, s)
             p.y = water.position.y - 0.4
@@ -572,7 +549,7 @@ export function Scene3D({ layers, terrain, flood, level }: Props) {
             const share = (j + 0.5) / n
             while (k < sources.length - 1 && (acc + sources[k][0]) / total < share) acc += sources[k++][0]
             const c = sources[k][1]
-            const prog = (L.t * 0.9 + j * 0.137) % 1
+            const prog = (now * 0.9 + j * 0.137) % 1
             const p = new THREE.Vector3().lerpVectors(clusterPos[c], nearestShelter[c], prog)
             p.y = fr.y(fr.groundAtXZ(p.x, p.z)) + 0.2
             m.compose(p, q.identity(), new THREE.Vector3(personScale, personScale, personScale))
@@ -628,58 +605,16 @@ export function Scene3D({ layers, terrain, flood, level }: Props) {
     sceneApi.current?.focus(highlight)
   }, [highlight, layers, terrain, buildings.isFetched])
 
-  const stop = () => {
-    setPlaying(false)
-    setTrace(null)
-  }
-  const scrub = (h: number) => {
-    live.current.t = h
-    setHour(h)
-  }
   const h = Math.min(hour, (trace?.level.length ?? 1) - 1)
   const lvlNow = trace ? trace.level[h] : level
   const hands = layers.clusters.features.map((f) => Number(f.properties.hand))
-  const floodedAreas = hands.filter((x) => x < lvlNow).length
-  const inDanger = trace ? trace.remaining[h].reduce((s, v, k) => s + (hands[k] < lvlNow ? v : 0), 0) : 0
   const pinned = highlight ? cardFor(highlight.kind, highlight.id, lvlNow) : null
 
   return (
     <div className="relative h-full w-full overflow-hidden">
       <div ref={box} className="absolute inset-0" role="img" aria-label="Realistic 3D view of the district with satellite imagery, terrain, houses, traffic, bridges, relief camps and flood water" />
 
-      <div className="absolute left-1/2 top-3 z-10 flex w-[min(44rem,calc(100%-9rem))] -translate-x-1/2 flex-col gap-2 rounded-xl border bg-card/90 p-2.5 text-xs shadow-lg backdrop-blur">
-        <div className="flex flex-wrap items-center gap-2">
-          {!trace ? (
-            <>
-              <Button size="sm" onClick={() => play.mutate('median')} disabled={play.isPending || !plan}>Play a typical future</Button>
-              <Button size="sm" variant="outline" onClick={() => play.mutate('bad_day')} disabled={play.isPending || !plan}>Play a bad day</Button>
-              <span className="text-muted-foreground">{play.isPending ? 'Simulating 150 futures to pick one' : 'Watch the current plan unfold hour by hour.'}</span>
-            </>
-          ) : (
-            <>
-              <Button size="sm" onClick={() => (h >= trace.level.length - 1 ? (scrub(0), setPlaying(true)) : setPlaying((p) => !p))}>
-                {playing ? 'Pause' : h >= trace.level.length - 1 ? 'Replay' : 'Play'}
-              </Button>
-              <Button size="sm" variant="ghost" onClick={stop}>Back to manual level</Button>
-              <span className="font-medium">{trace.pick === 'bad_day' ? 'Bad day (10th percentile)' : 'Typical future (median)'}</span>
-              <span className="ml-auto tabular-nums text-muted-foreground">evacuated in time: {Math.round((trace.metrics.evacuated_pct ?? 0) * 100)}%</span>
-            </>
-          )}
-        </div>
-        {trace && (
-          <>
-            <input type="range" className="w-full accent-primary" aria-label="Hour of the simulated future" min={0} max={trace.level.length - 1} step={1} value={h} onChange={(e) => { setPlaying(false); scrub(Number(e.target.value)) }} />
-            <div className="flex flex-wrap gap-x-4 gap-y-1 tabular-nums">
-              <span className="font-semibold">Hour {h}</span>
-              <span>Water {lvlNow.toFixed(1)} m above normal</span>
-              <span>{floodedAreas} of {hands.length} areas flooded</span>
-              <span>{Math.round(inDanger).toLocaleString()} people still in flooded areas</span>
-              <span className="text-muted-foreground">{h < trace.start_h ? `order reaches people at hour ${trace.start_h.toFixed(0)}` : h < trace.boats_on_h ? `boats arrive at hour ${trace.boats_on_h.toFixed(0)}` : 'boats operating'}</span>
-            </div>
-          </>
-        )}
-        {play.isError && <p className="text-risk">{String(play.error)}</p>}
-      </div>
+      <PlaybackPanel pb={pb} hands={hands} className="absolute left-1/2 top-3 z-10 w-[min(44rem,calc(100%-9rem))] -translate-x-1/2" />
 
       <label className="absolute right-3 top-3 z-10 flex items-center gap-2 rounded-lg border bg-card/90 px-2.5 py-1.5 text-xs shadow backdrop-blur">
         <input type="checkbox" checked={overlay} onChange={(e) => setOverlay(e.target.checked)} />

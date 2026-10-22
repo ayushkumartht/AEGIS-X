@@ -3,8 +3,9 @@ import { useQuery } from '@tanstack/react-query'
 import * as Cesium from 'cesium'
 import 'cesium/Build/Cesium/Widgets/widgets.css'
 import { api } from '@/api/client'
-import type { FloodState, GeoFeature, Layers } from '@/api/types'
+import type { FloodState, GeoFeature, Layers, Trace } from '@/api/types'
 import { useConsole, type HighlightKind } from '@/state/consoleStore'
+import { interp, PlaybackPanel, stepClock, useTracePlayback } from './playback'
 import { rng } from './scene/geo'
 import { clusterIcon, shelterIcon, stagingIcon } from './scene/icons'
 
@@ -53,11 +54,28 @@ interface Scene {
   shelters: { entity: Cesium.Entity; id: string; hand: number; kind: string }[]
   bridgePos: Map<string, Cesium.Cartesian3>
   baseline: number
-  rect: Cesium.Rectangle
-  water: Cesium.Primitive | null
-  waterKey: string
+  water: Cesium.Primitive
   ring: Cesium.Entity | null
   appliedRoads: string
+}
+
+/** Animated water surface over the district, built at the river's normal level and lifted by `modelMatrix`. */
+function waterSurface(rect: Cesium.Rectangle, baseline: number) {
+  const pad = 0.2
+  const w = rect.east - rect.west
+  const h = rect.north - rect.south
+  const rectangle = new Cesium.Rectangle(rect.west - w * pad, rect.south - h * pad, rect.east + w * pad, rect.north + h * pad)
+  const material = new Cesium.Material({
+    fabric: {
+      type: 'Water',
+      uniforms: { baseWaterColor: new Cesium.Color(0.09, 0.27, 0.36, 0.78), blendColor: new Cesium.Color(0.1, 0.3, 0.35, 0), normalMap: Cesium.buildModuleUrl('Assets/Textures/waterNormals.jpg'), frequency: 6000, animationSpeed: 0.018, amplitude: 2.2, specularIntensity: 0.7 },
+    },
+  })
+  return new Cesium.Primitive({
+    geometryInstances: new Cesium.GeometryInstance({ geometry: new Cesium.RectangleGeometry({ rectangle, height: baseline, vertexFormat: Cesium.EllipsoidSurfaceAppearance.VERTEX_FORMAT }) }),
+    appearance: new Cesium.EllipsoidSurfaceAppearance({ aboveGround: true, material }),
+    asynchronous: false,
+  })
 }
 
 export function CesiumScene({ district, layers, flood, level }: Props) {
@@ -70,6 +88,15 @@ export function CesiumScene({ district, layers, flood, level }: Props) {
   const buildings = useQuery({ queryKey: ['buildings', district], queryFn: () => api.buildings(district), retry: false })
   const highlight = useConsole((s) => s.highlight)
   const setHighlight = useConsole((s) => s.setHighlight)
+  const pb = useTracePlayback()
+  const { trace, hour } = pb
+
+  // what the per-frame water update reads, kept in a ref so re-renders do not touch the viewer
+  const live = useRef({ level, trace: null as Trace | null, playing: false, clock: pb.t, setHour: pb.setHour })
+  live.current.level = level
+  live.current.trace = trace
+  live.current.playing = pb.playing
+  live.current.setHour = pb.setHour
 
   useEffect(() => {
     const el = host.current
@@ -294,7 +321,24 @@ export function CesiumScene({ district, layers, flood, level }: Props) {
       }
       setNote(`${wallInst.length.toLocaleString()} illustrative houses along streets, in proportion to population${(buildings.data?.length ?? 0) ? `, plus ${buildings.data!.length} buildings mapped in OpenStreetMap` : ''}`)
 
-      scene.current = { viewer, roads: { primitive: roadPrimitive, edges }, clusters, shelters, bridgePos, baseline, rect, water: null, waterKey: '', ring: null, appliedRoads: '' }
+      // water: one surface at the river's normal level, lifted every frame to the current level
+      const water = sc.primitives.add(waterSurface(rect, baseline)) as Cesium.Primitive
+      const up = Cesium.Ellipsoid.WGS84.geodeticSurfaceNormal(Cesium.Cartesian3.fromDegrees(midLon, midLat), new Cesium.Cartesian3())
+      const lift = new Cesium.Cartesian3()
+      let shown = Number.NaN
+      let last = performance.now()
+      sc.preRender.addEventListener(() => {
+        const now = performance.now()
+        const dt = Math.min((now - last) / 1000, 0.1)
+        last = now
+        const L = live.current
+        const lvl = L.trace ? interp(L.trace.level, stepClock(L.clock, L.trace, L.playing, dt, L.setHour)) : L.level
+        const target = Math.max(lvl, 0.05)
+        shown = Number.isNaN(shown) ? target : shown + (target - shown) * 0.15
+        water.modelMatrix = Cesium.Matrix4.fromTranslation(Cesium.Cartesian3.multiplyByScalar(up, shown, lift))
+      })
+
+      scene.current = { viewer, roads: { primitive: roadPrimitive, edges }, clusters, shelters, bridgePos, baseline, water, ring: null, appliedRoads: '' }
       setReady(true)
     }
     void build()
@@ -344,56 +388,34 @@ export function CesiumScene({ district, layers, flood, level }: Props) {
     }
   }, [layers, buildings.isFetched, buildings.data, setHighlight])
 
-  // water surface: animated water material at the real elevation of the current level
+  // flood state: cut roads, flooded settlements and shelters. During playback it follows the
+  // simulated hour (and the badges count the people still in each area); otherwise the level slider.
+  const playbackHour = trace ? Math.min(hour, trace.level.length - 1) : -1
   useEffect(() => {
     const s = scene.current
     if (!s || !ready) return
-    const key = `${level.toFixed(2)}|${s.baseline.toFixed(1)}`
-    if (key === s.waterKey) return
-    s.waterKey = key
-    if (s.water) s.viewer.scene.primitives.remove(s.water)
-    const pad = 0.2
-    const w = s.rect.east - s.rect.west
-    const h = s.rect.north - s.rect.south
-    const rectangle = new Cesium.Rectangle(s.rect.west - w * pad, s.rect.south - h * pad, s.rect.east + w * pad, s.rect.north + h * pad)
-    const material = new Cesium.Material({
-      fabric: {
-        type: 'Water',
-        uniforms: { baseWaterColor: new Cesium.Color(0.09, 0.27, 0.36, 0.78), blendColor: new Cesium.Color(0.1, 0.3, 0.35, 0), normalMap: Cesium.buildModuleUrl('Assets/Textures/waterNormals.jpg'), frequency: 6000, animationSpeed: 0.018, amplitude: 2.2, specularIntensity: 0.7 },
-      },
-    })
-    s.water = s.viewer.scene.primitives.add(
-      new Cesium.Primitive({
-        geometryInstances: new Cesium.GeometryInstance({ geometry: new Cesium.RectangleGeometry({ rectangle, height: s.baseline + Math.max(level, 0.05), vertexFormat: Cesium.EllipsoidSurfaceAppearance.VERTEX_FORMAT }) }),
-        appearance: new Cesium.EllipsoidSurfaceAppearance({ aboveGround: true, material }),
-        asynchronous: false,
-      }),
-    )
-  }, [level, ready])
-
-  // flood state: cut roads, flooded settlements and shelters
-  useEffect(() => {
-    const s = scene.current
-    if (!s || !ready) return
-    const cut = flood ? new Set(flood.cut_edges) : null
-    const floodedClusters = new Set(flood?.flooded_clusters ?? [])
+    const lvl = trace ? trace.level[playbackHour] : level
+    const manual = trace ? undefined : flood
+    const remaining = trace ? new Map(trace.cluster_ids.map((id, k) => [id, trace.remaining[playbackHour][k]])) : null
+    const cut = manual ? new Set(manual.cut_edges) : null
+    const floodedClusters = new Set(manual?.flooded_clusters ?? [])
     for (const c of s.clusters) {
-      const isFlooded = flood ? floodedClusters.has(c.id) : c.hand < level
-      c.entity.billboard!.image = new Cesium.ConstantProperty(clusterIcon(c.population, isFlooded))
+      const isFlooded = manual ? floodedClusters.has(c.id) : c.hand < lvl
+      c.entity.billboard!.image = new Cesium.ConstantProperty(clusterIcon(remaining?.get(c.id) ?? c.population, isFlooded))
     }
-    const floodedShelters = new Set(flood?.flooded_shelters ?? [])
+    const floodedShelters = new Set(manual?.flooded_shelters ?? [])
     for (const sh of s.shelters) {
-      const isFlooded = flood ? floodedShelters.has(sh.id) : sh.hand < level
+      const isFlooded = manual ? floodedShelters.has(sh.id) : sh.hand < lvl
       sh.entity.billboard!.image = new Cesium.ConstantProperty(shelterIcon(isFlooded, sh.kind.startsWith('assumed')))
     }
     const paint = () => {
-      const key = `${flood?.level_m ?? level}|${flood?.cut_edges.length ?? 0}`
+      const key = manual ? `m|${manual.level_m}|${manual.cut_edges.length}` : `l|${lvl.toFixed(2)}`
       if (!s.roads.primitive.ready) return false
       if (key === s.appliedRoads) return true
       for (const r of s.roads.edges) {
         const attr = s.roads.primitive.getGeometryInstanceAttributes(r.id)
         if (!attr) continue
-        const isCut = cut ? cut.has(r.edge) : r.hand < level
+        const isCut = cut ? cut.has(r.edge) : r.hand < lvl
         attr.color = Cesium.ColorGeometryInstanceAttribute.toValue(isCut ? COLOR.cut : COLOR.road)
       }
       s.appliedRoads = key
@@ -404,7 +426,7 @@ export function CesiumScene({ district, layers, flood, level }: Props) {
       if (paint()) off()
     })
     return () => off()
-  }, [flood, level, ready])
+  }, [flood, level, ready, trace, playbackHour])
 
   // highlight ring and fly-to
   useEffect(() => {
@@ -433,13 +455,20 @@ export function CesiumScene({ district, layers, flood, level }: Props) {
   return (
     <div className="relative h-full w-full overflow-hidden">
       <div ref={host} className="absolute inset-0" role="img" aria-label="Real-terrain 3D view of the district with satellite imagery, roads, bridges, houses and flood water" />
+      {ready && (
+        <PlaybackPanel
+          pb={pb}
+          hands={layers.clusters.features.map((f) => Number(f.properties.hand))}
+          className="absolute bottom-10 left-1/2 z-10 w-[min(44rem,calc(100%-2rem))] -translate-x-1/2"
+        />
+      )}
       {tip && (
         <div className="pointer-events-none absolute z-20 max-w-64 rounded-lg border bg-card/95 px-3 py-2 text-xs shadow-lg backdrop-blur" style={{ left: tip.x, top: tip.y }}>
           <div className="font-semibold">{tip.title}</div>
           {tip.rows.map((r) => <div key={r} className="text-muted-foreground">{r}</div>)}
         </div>
       )}
-      {status && <div className="absolute bottom-24 left-1/2 z-10 -translate-x-1/2 rounded-lg bg-card/90 px-3 py-1.5 text-xs shadow">{status}</div>}
+      {status && <div className="absolute top-14 left-1/2 z-10 -translate-x-1/2 rounded-lg bg-card/90 px-3 py-1.5 text-xs shadow">{status}</div>}
       <div className="pointer-events-none absolute bottom-2 right-3 z-10 max-w-[60%] text-right text-[10px] leading-tight text-white/90 [text-shadow:0_1px_2px_rgb(0_0_0/0.8)]">
         {MAP_CREDIT}
         {note && <><br />{note}</>}
