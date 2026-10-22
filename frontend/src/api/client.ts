@@ -1,7 +1,5 @@
-import { useAuth } from '@/state/authStore'
+import { operatorName } from '@/state/operatorStore'
 import type {
-  Account,
-  AuthUser,
   Brief,
   Building,
   CompareResult,
@@ -19,13 +17,11 @@ import type {
   OpsEvents,
   OpsMode,
   OptionsResult,
-  Overview,
   PlaceHit,
   Plan,
   RedTeamResult,
   ReplayResult,
   ReportResult,
-  Role,
   SimResult,
   StoredReport,
   TerrainGrid,
@@ -46,17 +42,12 @@ export class ApiError extends Error {
 }
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
-  const token = useAuth.getState().token
-  const headers = new Headers(init?.headers)
-  if (token) headers.set('Authorization', `Bearer ${token}`)
   let res: Response
   try {
-    res = await fetch(`${BASE}${path}`, { ...init, headers })
+    res = await fetch(`${BASE}${path}`, init)
   } catch {
     throw new ApiError(`Cannot reach the AEGIS-X API at ${ORIGIN}. Is the backend running?`)
   }
-  // A token the server no longer accepts (expired, account disabled): drop it so the UI shows signed-out.
-  if (res.status === 401 && token) useAuth.getState().signOut()
   if (!res.ok) {
     let detail = res.statusText
     try {
@@ -101,7 +92,7 @@ export const api = {
   optimize: (a: { district: string; what_if?: WhatIf }) => post<OptionsResult>('/analysis/optimize', a),
   explain: (payload: unknown) => post<Explanation>('/explain', { payload }),
   addReport: (district: string, text: string, source_type: string) =>
-    post<ReportResult>('/reports', { district, text, source_type }),
+    post<ReportResult>('/reports', { district, text, source_type, author: operatorName() }),
   reports: (d: string) => request<StoredReport[]>(`/districts/${d}/reports`),
   addDecision: (body: {
     district: string
@@ -111,16 +102,9 @@ export const api = {
     explanation: string
     note: string
     evidence?: Record<string, unknown>
-  }) => post<{ id: number }>('/decisions', body),
+  }) => post<{ id: number }>('/decisions', { ...body, author: operatorName() }),
   decisions: (district?: string) => request<DecisionRecord[]>(`/decisions${district ? `?district=${district}` : ''}`),
   replay: (event: string) => request<ReplayResult>(`/replay/${event}`),
-  login: (email: string, password: string) => post<{ token: string; user: AuthUser }>('/auth/login', { email, password }),
-  me: () => request<AuthUser>('/auth/me'),
-  users: () => request<Account[]>('/auth/users'),
-  addUser: (body: { email: string; name: string; role: Role; password: string }) => post<Account>('/auth/users', body),
-  updateUser: (id: number, body: { name?: string; role?: Role; active?: boolean; password?: string }) =>
-    send<Account>('PATCH', `/auth/users/${id}`, body),
-  overview: () => request<Overview>('/admin/overview'),
   integrity: () => request<Integrity>('/audit/integrity'),
   opsHazards: () => request<Hazard[]>('/ops/hazards'),
   opsFeeds: (exercise = false) => request<{ feeds: FeedStatus[]; offline: boolean; exercise: boolean }>(`/ops/feeds?exercise=${exercise}`),
@@ -135,10 +119,10 @@ export const api = {
   opsDistricts: (exercise = false) => request<OpsDistricts>(`/ops/districts?exercise=${exercise}`),
   opsModes: () => request<OpsMode[]>('/ops/modes'),
   opsRefresh: (risk = false) => post<unknown>(`/ops/refresh?risk=${risk}`, {}),
-  opsBrief: (mode: string, exercise = false) => post<Brief>('/ops/brief', { mode, exercise }),
+  opsBrief: (mode: string, exercise = false) => post<Brief>('/ops/brief', { mode, exercise, author: operatorName() }),
   opsBriefs: () => request<Brief[]>('/ops/briefs'),
   opsDecide: (recId: number, action: 'accept' | 'reject', note: string) =>
-    post<{ decision_id: number; status: string }>(`/ops/recommendations/${recId}/decision`, { action, note }),
+    post<{ decision_id: number; status: string }>(`/ops/recommendations/${recId}/decision`, { action, note, author: operatorName() }),
   opsSearch: (q: string) => request<PlaceHit[]>(`/ops/search?q=${encodeURIComponent(q)}`),
 }
 
