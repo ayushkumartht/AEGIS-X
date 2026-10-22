@@ -2,9 +2,12 @@
 
 from __future__ import annotations
 
+import json
 from typing import Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
+
+MAX_EVIDENCE_CHARS = 200_000
 
 
 class PlanModel(BaseModel):
@@ -97,6 +100,14 @@ class DecisionRequest(BaseModel):
     run_id: int | None = None
     explanation: str = Field(default="", max_length=5000)
     note: str = Field(default="", max_length=500)
+    evidence: dict = Field(default_factory=dict, description="Snapshot of the analyses the decision rests on")
+
+    @field_validator("evidence")
+    @classmethod
+    def evidence_is_small(cls, v: dict) -> dict:
+        if len(json.dumps(v, default=str)) > MAX_EVIDENCE_CHARS:
+            raise ValueError("evidence is too large")
+        return v
 
 
 class FloodStateRequest(BaseModel):
