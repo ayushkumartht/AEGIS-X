@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
 from typing import Any
 
@@ -85,15 +86,60 @@ def list_reports(district: str | None = None, limit: int | None = None) -> list[
     ]
 
 
+HASHED = ("decided_at", "district", "author", "action", "plan_json", "run_id", "explanation", "note", "evidence_json")
+
+
+def _decision_hash(previous: str, row: dict[str, Any]) -> str:
+    """SHA-256 over the decision's fields (sorted keys) and the previous decision's hash."""
+    body = json.dumps({k: row[k] for k in HASHED}, sort_keys=True, separators=(",", ":"), default=str)
+    return hashlib.sha256(f"{previous}|{body}".encode()).hexdigest()
+
+
 def add_decision(
-    district: str, author: str, action: str, plan: dict, run_id: int | None, explanation: str, note: str
+    district: str, author: str, action: str, plan: dict, run_id: int | None, explanation: str, note: str,
+    evidence: dict | None = None,
 ) -> int:
+    """Store a decision, chained to the previous one so a later edit or deletion is detectable."""
+    row = {
+        "decided_at": now_iso(), "district": district, "author": author, "action": action,
+        "plan_json": dumps(plan), "run_id": run_id, "explanation": explanation, "note": note,
+        "evidence_json": dumps(evidence or {}),
+    }
     with connect() as c:
+        c.execute("BEGIN IMMEDIATE")  # one writer at a time, so two decisions cannot share a predecessor
+        last = c.execute("SELECT decision_hash FROM decision ORDER BY id DESC LIMIT 1").fetchone()
+        previous = (last["decision_hash"] if last and last["decision_hash"] else "")
+        digest = _decision_hash(previous, row)
         return c.execute(
-            "INSERT INTO decision (decided_at, district, author, action, plan_json, run_id, explanation, note) "
-            "VALUES (?,?,?,?,?,?,?,?)",
-            (now_iso(), district, author, action, dumps(plan), run_id, explanation, note),
+            f"INSERT INTO decision ({', '.join(HASHED)}, previous_hash, decision_hash) VALUES ({', '.join('?' * (len(HASHED) + 2))})",
+            (*(row[k] for k in HASHED), previous, digest),
         ).lastrowid
+
+
+def audit_integrity() -> dict[str, Any]:
+    """Recompute the decision hash chain.
+
+    Each hashed decision must match its own fields and point at the hash of the decision before it.
+    Decisions made before the chain existed have no hash and are counted as legacy. Without an
+    outside copy of the latest hash, deleting the newest decisions cannot be detected: this is
+    tamper-evidence, not immutable storage.
+    """
+    with connect() as c:
+        rows = [dict(r) for r in c.execute("SELECT * FROM decision ORDER BY id")]
+    broken, legacy, checked, expected = [], 0, 0, ""
+    for r in rows:
+        if not r["decision_hash"]:
+            legacy += 1
+            expected = ""
+            continue
+        checked += 1
+        if (r["previous_hash"] or "") != expected or _decision_hash(r["previous_hash"] or "", r) != r["decision_hash"]:
+            broken.append(r["id"])
+        expected = r["decision_hash"]
+    status = "invalid" if broken else "valid_with_legacy_records" if legacy else "valid"
+    return {"status": status, "total": len(rows), "checked": checked, "legacy": legacy, "broken": broken,
+            "head": expected or None,
+            "note": "Tamper-evident only: without an outside copy of the head hash, deleting the newest decisions is not detectable."}
 
 
 def list_decisions(district: str | None = None, limit: int | None = None) -> list[dict[str, Any]]:
@@ -120,6 +166,8 @@ def list_decisions(district: str | None = None, limit: int | None = None) -> lis
                 "run": run,
                 "explanation": r["explanation"],
                 "note": r["note"],
+                "evidence": json.loads(r["evidence_json"] or "{}"),
+                "hash": r["decision_hash"],
             }
         )
     return out

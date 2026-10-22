@@ -31,6 +31,31 @@ CREATE TABLE IF NOT EXISTS decision (
     author TEXT NOT NULL, action TEXT NOT NULL, plan_json TEXT NOT NULL, run_id INTEGER,
     explanation TEXT NOT NULL, note TEXT NOT NULL
 );
+CREATE TABLE IF NOT EXISTS ops_event (
+    uid TEXT PRIMARY KEY, source TEXT NOT NULL, hazard TEXT NOT NULL, event TEXT NOT NULL,
+    severity TEXT NOT NULL, urgency TEXT NOT NULL, certainty TEXT NOT NULL, sender TEXT NOT NULL,
+    state TEXT NOT NULL, area TEXT NOT NULL, headline TEXT NOT NULL, description TEXT NOT NULL,
+    lat REAL, lon REAL, place_method TEXT NOT NULL, district_id TEXT, effective TEXT, expires TEXT,
+    sent TEXT NOT NULL, gauge_json TEXT, url TEXT NOT NULL, fetched_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS ops_event_sent ON ops_event (sent);
+CREATE TABLE IF NOT EXISTS ops_indicator (
+    id INTEGER PRIMARY KEY AUTOINCREMENT, district_id TEXT NOT NULL, computed_at TEXT NOT NULL,
+    level TEXT NOT NULL, data_json TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS ops_indicator_district ON ops_indicator (district_id, id);
+CREATE TABLE IF NOT EXISTS ops_feed (
+    name TEXT PRIMARY KEY, last_attempt TEXT, last_success TEXT, last_error TEXT, items INTEGER NOT NULL DEFAULT 0
+);
+CREATE TABLE IF NOT EXISTS ops_brief (
+    id INTEGER PRIMARY KEY AUTOINCREMENT, created_at TEXT NOT NULL, mode TEXT NOT NULL, author TEXT NOT NULL,
+    source TEXT NOT NULL, model TEXT NOT NULL, evidence_json TEXT NOT NULL, sections_json TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS ops_recommendation (
+    id INTEGER PRIMARY KEY AUTOINCREMENT, brief_id INTEGER NOT NULL, district_id TEXT, action TEXT NOT NULL,
+    detail_json TEXT NOT NULL, status TEXT NOT NULL DEFAULT 'proposed', decided_by TEXT, decided_at TEXT,
+    decision_id INTEGER
+);
 CREATE TABLE IF NOT EXISTS user (
     id INTEGER PRIMARY KEY AUTOINCREMENT, created_at TEXT NOT NULL, email TEXT NOT NULL UNIQUE,
     name TEXT NOT NULL, role TEXT NOT NULL, password_hash TEXT NOT NULL,
@@ -70,6 +95,10 @@ def _migrate(conn: sqlite3.Connection) -> None:
     cols = {r["name"] for r in conn.execute("PRAGMA table_info(field_report)")}
     if "author" not in cols:
         conn.execute("ALTER TABLE field_report ADD COLUMN author TEXT NOT NULL DEFAULT ''")
+    cols = {r["name"] for r in conn.execute("PRAGMA table_info(decision)")}
+    for name, ddl in (("evidence_json", "TEXT NOT NULL DEFAULT '{}'"), ("previous_hash", "TEXT"), ("decision_hash", "TEXT")):
+        if name not in cols:
+            conn.execute(f"ALTER TABLE decision ADD COLUMN {name} {ddl}")
 
 
 def dumps(obj: Any) -> str:
