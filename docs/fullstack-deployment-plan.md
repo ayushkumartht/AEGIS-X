@@ -4,6 +4,8 @@ Date: 22 Oct 2026. Goal: AEGIS-X ko public website ki tarah live karna, sab feat
 
 This plan builds on [flood-final-status-and-demo.md](flood-final-status-and-demo.md) (what already works) and [final-implementation-plan.md](final-implementation-plan.md) (architecture).
 
+**Status (22 Oct 2026):** Phases 1, 2, 3 and 5 are built, tested and pushed. Phase 4.3 is built (the Situation tab lists every source and marks estimates). Phases 4.1 and 4.2 need official data that is not online in machine-readable form: the district's relief-camp list with capacities, its boat inventory, and ward-level population. Until then those inputs stay labelled as estimates. What is left for you: the go-live steps in section 4.
+
 ---
 
 ## 1. Hosting decision

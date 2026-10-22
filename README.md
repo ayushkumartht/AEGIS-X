@@ -1,6 +1,6 @@
 # AEGIS-X
 
-![CI](https://github.com/ayushkumartht/AEGIS-X/actions/workflows/ci.yml/badge.svg) ![Lint](https://github.com/ayushkumartht/AEGIS-X/actions/workflows/lint.yml/badge.svg) ![Version](https://img.shields.io/badge/version-0.2.0-brightgreen.svg)
+![CI](https://github.com/ayushkumartht/AEGIS-X/actions/workflows/ci.yml/badge.svg) ![Version](https://img.shields.io/badge/version-0.2.0-brightgreen.svg)
 
 
 
@@ -65,7 +65,7 @@ docs/               start at docs/README.md; master plan = final-implementation-
 
 ```powershell
 python -m venv .venv
-.\.venv\Scripts\pip install numpy scipy fastapi "uvicorn[standard]" pydantic pydantic-settings httpx groq==1.7.0 pytest
+.\.venv\Scripts\pip install -r backend\requirements.txt pytest
 
 # run the tests (from backend/)
 cd backend
@@ -88,8 +88,16 @@ npm run dev
 # open http://localhost:5173 (requires the API running on :8000, see above)
 ```
 
-Copy `.env.example` to `.env` and set `GROQ_API_KEY` to enable the Red Team
-narration button; everything else works without it. See
+Copy `.env.example` to `.env`. Set `GROQ_API_KEY` for plain-language explanations
+(everything else works without it) and `AEGIS_ADMIN_EMAIL` / `AEGIS_ADMIN_PASSWORD`
+to create the admin account (sign in at `/login`, Command Center at `/command`).
+
+### Going live
+
+Frontend on Vercel, API on Render (Docker). Step by step:
+[docs/fullstack-deployment-plan.md](docs/fullstack-deployment-plan.md).
+
+See
 [docs/archive/flood-evacuation-steps.md](docs/archive/flood-evacuation-steps.md) for the
 full build log, the demo script, and two real bugs found and fixed while
 building this (inverted resilience calculation; a road-grid topology that

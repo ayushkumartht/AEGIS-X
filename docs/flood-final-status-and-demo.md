@@ -44,27 +44,32 @@ Safety: `.env` gitignored hai, key kabhi commit mat karna. Agar LLM kuch aisa nu
 ## 4. Kya bacha hai (priority order)
 
 ### A. Demo se pehle zaroori (chhota kaam)
-1. **Groq key lagao** (section 3). 10 minute.
-2. **Latest 3D work commit/push**: Cesium view + lite 3D upgrade abhi sirf local hai, git mein nahi. Push tabhi karenge jab tum bologe. Saath mein `.runtimepackages.local-backup/` ko `.gitignore` mein daalna hai ya delete karna hai (ye untracked hai, commit nahi hona chahiye).
+1. ~~Groq key lagao~~: done (22 Oct), local `.env` mein. Key chat mein share hui thi, isliye live jaane se pehle **nayi key bana ke purani delete karo**.
+2. ~~Latest 3D work commit/push~~: done.
 3. **Ek baar full dry-run**: dev.ps1 se dono servers uthao, neeche ka demo script (section 5) ek baar start se end tak chalao, taaki live pe surprise na ho.
+4. **Live karna**: [fullstack-deployment-plan.md](fullstack-deployment-plan.md) section 4 (Render + Vercel).
+
+Done after this list was written (22 Oct): admin/officer login, Command Center (`/command`), rate limits, Docker/Render/Vercel files, CI, Cesium view mein hour-by-hour playback, Situation tab mein "Where this data comes from".
 
 ### B. Product ko pakka karne ke liye
 4. **Real shelter list**: `data/reference/cachar_shelters.csv` abhi khali hai. Abhi shelters OpenStreetMap se nikle hain (schools, halls) aur kuch "assumed assembly points" hain. Cachar District Disaster Management Plan se asli relief camps aur capacity bharni hai.
 5. **Population**: WorldPop raster nahi mila, isliye population road-length se estimate hoti hai. Census ya WorldPop file mil jaaye to usse replace karna hai. Judges ko ye honestly batana hai.
 6. **Model assumptions ka asli check**: compliance (kitne log sunenge), boat speed, vehicle capacity, shelter fill-rate abhi reasonable assumptions hain, asli evacuation outcome data se calibrate nahi hain. Sirf nadi ka level 2022 ke record se calibrated hai.
-7. **Cesium view mein hour-by-hour playback**: "Play a typical future / bad day" abhi sirf lite 3D mein hai. Cesium view mein water rise aur log hilte nahi dikhte.
+7. ~~Cesium view mein hour-by-hour playback~~: done. Dono 3D views mein same controls hain.
 8. **Weak laptop par lite 3D heavy**: Cachar par ~15,000 houses cap hai. Agar lag kare to house cap ya traffic kam karna hai.
-9. **Docs sync**: `docs/final-implementation-plan.md` ka "current state" table (section 2 wala) purana hai (synthetic 20x20 grid likha hai). Isko is file ke hisaab se update karna hai.
+9. ~~Docs sync~~: done.
 10. **Tests**: frontend ke liye koi automated test nahi (sirf type-check). Ek chhota smoke/e2e test add kar sakte hain. API types hand-written hain (openapi-typescript install nahi ho paya).
 
 ### C. Baad mein (user ne khud "baad me" kaha)
-11. **Admin-login Command Center** (alag dashboard): sabse pehle sirf admin login. Plan memory mein saved hai. Dikshansh ke purane version ka reference: `docs/archive/dikshansh-contributions-2026-10-20.md`.
+11. ~~Admin-login Command Center~~: done (`/login`, `/command`).
 12. **Army/Police**: Army ke liye flood module extend (helicopter, engineers, pontoon, convoy routing). Police ke liye `domains/crowd` banana (abhi stub hai). `domains/fire` bhi stub hai.
-13. **Production auth/deploy**: abhi koi login nahi hai, ye local demo build hai.
+13. ~~Production auth/deploy~~: code ready; deploy steps tumhe karne hain (Render/Vercel account).
 
 ## 5. Demo script: simulation dikhana aur samjhana
 
 Pehle servers: `.\scripts\dev.ps1` (ya jo already chal rahe hain). Browser: `http://localhost:5173/console/cachar`.
+
+Field report aur Accept/Reject ke liye pehle `/login` par admin (ya officer) se sign in karo. Local admin `.env` mein hai (`AEGIS_ADMIN_EMAIL` / `AEGIS_ADMIN_PASSWORD`). Admin ko `/command` par Command Center bhi milta hai, demo ke end mein dikhao.
 
 **Story (1 line pehle bolo):** "Silchar mein Barak nadi badh rahi hai. Humare paas 1 plan hai. Kya ye plan har tarah ki barish aur nadi ke level mein chalega? Aur kahan toot-ta hai?"
 

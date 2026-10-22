@@ -22,6 +22,45 @@ const SLIDERS: { key: keyof WhatIf; label: string; min: number; max: number; ste
   { key: 'comms_degradation_pct', label: 'Network lost', min: 0, max: 1, step: 0.05 },
 ]
 
+/** Where each input of the model comes from, and which inputs are assumptions still to be replaced. */
+function DataSources({ layers }: { layers: Layers }) {
+  const meta = layers.metadata
+  const text = (k: string) => (typeof meta[k] === 'string' ? (meta[k] as string) : null)
+  const shelters = layers.shelters.features
+  const assumed = shelters.filter((f) => String(f.properties.kind).startsWith('assumed')).length
+  const rows: [string, string, boolean][] = []
+  if (meta.synthetic) {
+    rows.push(['Everything', 'A made-up demo district for trying the tool offline. Not a real place.', true])
+  } else {
+    rows.push(['Roads, bridges, river', 'OpenStreetMap', false])
+    if (text('elevation_source')) rows.push(['Ground height', text('elevation_source')!, false])
+    rows.push(['Rain and river flow', 'Open-Meteo ensemble forecast and GloFAS river discharge', false])
+    rows.push([
+      'Shelters',
+      `${shelters.length - assumed} buildings from OpenStreetMap (capacity estimated by building type)${assumed ? `; ${assumed} assumed assembly points added to cover the population` : ''}`,
+      true,
+    ])
+    if (text('population_note')) rows.push(['People', text('population_note')!, true])
+    if (text('resources_note')) rows.push(['Boats and vehicles', text('resources_note')!, true])
+  }
+  return (
+    <section>
+      <h3 className="font-semibold">Where this data comes from</h3>
+      <ul className="mt-2 divide-y rounded-lg border">
+        {rows.map(([what, source, estimate]) => (
+          <li key={what} className="flex justify-between gap-3 px-3 py-2">
+            <span className="font-medium">{what}</span>
+            <span className="text-right text-muted-foreground">
+              {estimate && <span className="mr-1 rounded bg-warn/30 px-1.5 py-0.5 text-xs font-medium text-foreground">estimate</span>}
+              {source}
+            </span>
+          </li>
+        ))}
+      </ul>
+    </section>
+  )
+}
+
 export function SituationTab({ layers }: { layers: Layers }) {
   const { district, whatIf, setWhatIf } = useConsole()
   const qc = useQueryClient()
@@ -85,6 +124,8 @@ export function SituationTab({ layers }: { layers: Layers }) {
           ))}
         </ul>
       </section>
+
+      <DataSources layers={layers} />
 
       <section>
         <div className="flex items-center justify-between">

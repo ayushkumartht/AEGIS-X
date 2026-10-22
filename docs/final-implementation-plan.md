@@ -62,22 +62,21 @@ Same as the problem document: no flood forecasting of our own (we use IMD, GloFA
 
 ## 2. Where we are today
 
-Checked against the repo on 2026-10-19.
+Checked against the repo on 2026-10-22. (The table that stood here on 2026-10-19 described the v0 grid demo; every phase in section 12 has since been built.) Latest detail: [flood-final-status-and-demo.md](flood-final-status-and-demo.md); going live: [fullstack-deployment-plan.md](fullstack-deployment-plan.md).
 
 | Area | State | Location |
 |---|---|---|
-| Core engine contract `simulate(scenario, plan, conditions)` | ✅ Built | `core/engine/interfaces.py` |
-| Monte Carlo, compare, Red Team (worst case, knockout), sensitivity (correlation), VOI, optimiser (random search + Pareto) | ✅ Built | `core/engine/*.py` |
-| Flood model on a **synthetic 20×20 grid**, static flood level, BFS routing, boat capacity loop | ✅ Built | `domains/flood/model.py` |
+| Engine: Monte Carlo (LHS), Red Team (failure boxes, adversarial search, knockouts), Sobol sensitivity, VOI, NSGA-II optimiser, calibration | ✅ Built | `backend/aegis/engine/` |
+| Flood model on the real Cachar road graph: time-stepped 48 h, HAND flood thresholds, calibrated rating curve, boats, shelters, compliance | ✅ Built | `backend/aegis/domains/flood/` |
+| Real data for Silchar/Cachar: OSM roads/river/bridges/shelters/buildings, Open-Meteo forecast, GloFAS discharge, DEM | ✅ Built and committed | `data/processed/cachar`, `data/raw/cachar` |
+| Storage, audit log, field-report fusion, June 2022 replay | ✅ Built | `storage/`, `fusion/`, `replay/` |
+| API (`/api/v1`), WebSocket progress, rate limits | ✅ Built | `backend/aegis/api/` |
+| Accounts (admin/officer/viewer) and Command Center | ✅ Built | `aegis/auth.py`, `/command` |
+| LLM narration (Groq/Gemini/Claude) with number guardrail | ✅ Built; key read from `.env` | `backend/aegis/llm/` |
+| Console with 3 views (Cesium real terrain, three.js, 2D) and hour-by-hour playback | ✅ Built | `frontend/src` |
+| Deployment: Dockerfile, Render blueprint, Vercel config, CI | ✅ Built | `backend/Dockerfile`, `render.yaml`, `frontend/vercel.json` |
 | Fire and crowd modules | ⬜ Stubs | `domains/fire`, `domains/crowd` |
-| FastAPI with 7 endpoints under `/flood/*` | ✅ Built | `api/main.py` |
-| LLM narration with Groq | ✅ Built; key not auto-loaded from `.env` | `api/explain.py` |
-| Frontend: landing page, docs page, demo page (canvas grid, sliders, charts, Red Team panel) | ✅ Built | `frontend/src` |
-| Tests: one smoke test file | ✅ Passing | `tests/test_flood_smoke.py` |
-| Real data | ⬜ None in the repo. Live fetch tested by hand (see research doc §5.3). | `data/` is empty |
-| Storage, audit log, data fusion, calibration, replay | ⬜ Not built | |
-
-**The main gaps:** real data, a realistic flood and evacuation model, storage, and a proper decision screen.
+| Official shelter list and boat inventory for Cachar; census-grade population | ⬜ Needs the district's documents | `data/reference/` |
 
 ---
 
