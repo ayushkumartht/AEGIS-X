@@ -5,10 +5,11 @@ const COLUMNS = [
   {
     title: 'Product',
     links: [
+      { to: '/#product', label: 'Product' },
       { to: '/#how-it-works', label: 'How it works' },
-      { to: '/#platform', label: 'Platform' },
-      { to: '/#architecture', label: 'Architecture' },
-      { to: '/demo', label: 'Live demo' },
+      { to: '/command', label: 'Command Center' },
+      { to: '/console/cachar', label: 'Silchar console' },
+      { to: '/demo', label: 'Offline demo' },
     ],
   },
   {

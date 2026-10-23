@@ -7,10 +7,9 @@ import { Logo } from '@/components/site/Logo'
 import { cn } from '@/lib/utils'
 
 const LINKS = [
+  { href: '/#product', label: 'Product' },
   { href: '/#how-it-works', label: 'How it works' },
-  { href: '/#case-studies', label: 'Case studies' },
-  { href: '/#platform', label: 'Platform' },
-  { href: '/#architecture', label: 'Architecture' },
+  { href: '/#principles', label: 'Principles' },
   { href: '/docs', label: 'Documentation' },
 ]
 
@@ -63,8 +62,8 @@ export function SiteHeader({ overlay = false }: { overlay?: boolean }) {
 
         <div className="hidden md:block">
           <Button asChild size="sm" className={cn('rounded-full px-4', onDark && 'bg-white text-slate-950 hover:bg-sky-50')}>
-            <Link to="/demo">
-              Launch demo <ArrowRight />
+            <Link to="/command">
+              Command Center <ArrowRight />
             </Link>
           </Button>
         </div>
@@ -96,8 +95,8 @@ export function SiteHeader({ overlay = false }: { overlay?: boolean }) {
                 </Link>
               ))}
               <Button asChild className="mt-2 rounded-full">
-                <Link to="/demo" onClick={() => setOpen(false)}>
-                  Launch demo <ArrowRight />
+                <Link to="/command" onClick={() => setOpen(false)}>
+                  Command Center <ArrowRight />
                 </Link>
               </Button>
             </div>
