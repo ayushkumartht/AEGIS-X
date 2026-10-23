@@ -84,6 +84,15 @@ The built district is **Silchar / Cachar, Assam** (real OpenStreetMap roads and 
 
 ## How it works
 
+<p align="center"><img src="docs/images/architecture.svg" alt="AEGIS-X system architecture" width="100%"></p>
+
+<p align="center"><img src="docs/images/decision-flow.svg" alt="From evidence to decision: how a brief is made, checked and decided" width="100%"></p>
+
+The full tour, with diagrams of every layer, the engine, the flood model, the live data pipeline, the AI guardrail and the data model, is in **[docs/architecture.md](docs/architecture.md)**.
+
+<details>
+<summary>Text version of the architecture (Mermaid)</summary>
+
 ```mermaid
 flowchart LR
   subgraph Feeds["Live data"]
@@ -113,6 +122,8 @@ flowchart LR
   CO <--> E
   E --> S
 ```
+
+</details>
 
 **The one rule that keeps it honest:** every domain plugs into the engine through a single function,
 

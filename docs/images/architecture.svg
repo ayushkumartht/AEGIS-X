@@ -1,0 +1,305 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="1010" viewBox="0 0 1600 1010" font-family="Segoe UI, Inter, Helvetica Neue, Arial, sans-serif">
+  <title>AEGIS-X system architecture</title>
+  <desc>Live and open data flows into a FastAPI backend made of an ops layer, an AI layer with a guardrail, a domain-free simulation engine, domain models and a hash-chained store. A React frontend shows the Command Center and the evacuation console, and an officer makes every decision.</desc>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#070b18"/>
+      <stop offset="0.55" stop-color="#0c1530"/>
+      <stop offset="1" stop-color="#140f2e"/>
+    </linearGradient>
+    <radialGradient id="glowA" cx="0.5" cy="0.5" r="0.5">
+      <stop offset="0" stop-color="#3b82f6" stop-opacity="0.35"/>
+      <stop offset="1" stop-color="#3b82f6" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="glowB" cx="0.5" cy="0.5" r="0.5">
+      <stop offset="0" stop-color="#a855f7" stop-opacity="0.28"/>
+      <stop offset="1" stop-color="#a855f7" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="api" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#4f46e5"/>
+      <stop offset="0.5" stop-color="#2563eb"/>
+      <stop offset="1" stop-color="#0891b2"/>
+    </linearGradient>
+    <linearGradient id="edge" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#60a5fa"/>
+      <stop offset="0.5" stop-color="#a78bfa"/>
+      <stop offset="1" stop-color="#f472b6"/>
+    </linearGradient>
+    <linearGradient id="flow" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#38bdf8" stop-opacity="0.15"/>
+      <stop offset="1" stop-color="#38bdf8"/>
+    </linearGradient>
+    <linearGradient id="flowR" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#a78bfa"/>
+      <stop offset="1" stop-color="#f472b6"/>
+    </linearGradient>
+    <linearGradient id="human" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#065f46"/>
+      <stop offset="1" stop-color="#0f3d33"/>
+    </linearGradient>
+    <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse">
+      <path d="M40 0H0V40" fill="none" stroke="#ffffff" stroke-opacity="0.035"/>
+    </pattern>
+    <filter id="shadow" x="-10%" y="-10%" width="120%" height="130%">
+      <feDropShadow dx="0" dy="6" stdDeviation="9" flood-color="#000" flood-opacity="0.45"/>
+    </filter>
+    <filter id="soft" x="-30%" y="-30%" width="160%" height="160%">
+      <feGaussianBlur stdDeviation="2.2"/>
+    </filter>
+    <marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0 0L10 5L0 10z" fill="#7dd3fc"/>
+    </marker>
+    <marker id="arrowP" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0 0L10 5L0 10z" fill="#f9a8d4"/>
+    </marker>
+    <marker id="arrowG" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0 0L10 5L0 10z" fill="#4ade80"/>
+    </marker>
+    <style>
+      .h { fill: #f8fafc; font-weight: 700; }
+      .t { fill: #e2e8f0; font-weight: 650; font-size: 16px; }
+      .s { fill: #94a3b8; font-size: 12.5px; }
+      .k { fill: #64748b; font-size: 11px; font-weight: 700; letter-spacing: 2.2px; }
+      .chip { fill: #e0f2fe; font-size: 12.5px; font-weight: 600; }
+      .mono { font-family: Cascadia Code, Consolas, Menlo, monospace; }
+      .card { fill: #111a35; stroke: #26355f; stroke-width: 1.2; }
+    </style>
+  </defs>
+
+  <!-- canvas -->
+  <rect width="1600" height="1010" fill="url(#bg)"/>
+  <rect width="1600" height="1010" fill="url(#grid)"/>
+  <circle cx="790" cy="520" r="520" fill="url(#glowA)"/>
+  <circle cx="1420" cy="760" r="380" fill="url(#glowB)"/>
+  <circle cx="160" cy="300" r="300" fill="url(#glowB)" opacity="0.6"/>
+
+  <!-- title -->
+  <text x="56" y="72" class="h" font-size="40">AEGIS<tspan fill="#60a5fa">-X</tspan></text>
+  <text x="58" y="104" class="s" font-size="17">System architecture · test the decision before reality does</text>
+  <g transform="translate(1010 46)">
+    <rect width="168" height="38" rx="19" fill="#0e7490" fill-opacity="0.25" stroke="#22d3ee" stroke-opacity="0.6"/>
+    <text x="84" y="25" text-anchor="middle" fill="#a5f3fc" font-size="14" font-weight="700">Math decides</text>
+    <rect x="182" width="168" height="38" rx="19" fill="#9d174d" fill-opacity="0.25" stroke="#f472b6" stroke-opacity="0.6"/>
+    <text x="266" y="25" text-anchor="middle" fill="#fbcfe8" font-size="14" font-weight="700">AI explains</text>
+    <rect x="364" width="176" height="38" rx="19" fill="#065f46" fill-opacity="0.35" stroke="#4ade80" stroke-opacity="0.7"/>
+    <text x="452" y="25" text-anchor="middle" fill="#bbf7d0" font-size="14" font-weight="700">Humans decide</text>
+  </g>
+
+  <!-- ===================== LEFT: data ===================== -->
+  <text x="56" y="160" class="k">LIVE &amp; OPEN DATA</text>
+  <g filter="url(#shadow)">
+    <!-- 1 -->
+    <rect x="50" y="178" width="300" height="104" rx="14" class="card"/>
+    <rect x="50" y="178" width="5" height="104" rx="2.5" fill="#f97316"/>
+    <text x="72" y="208" class="t">NDMA SACHET</text>
+    <text x="72" y="232" class="s">Official CAP alerts every 10 min</text>
+    <text x="72" y="252" class="s">IMD · CWC river gauges · state SDMAs</text>
+    <circle cx="326" cy="200" r="5" fill="#22c55e"/><circle cx="326" cy="200" r="9" fill="#22c55e" opacity="0.25"/>
+    <!-- 2 -->
+    <rect x="50" y="298" width="300" height="88" rx="14" class="card"/>
+    <rect x="50" y="298" width="5" height="88" rx="2.5" fill="#ef4444"/>
+    <text x="72" y="328" class="t">GDACS</text>
+    <text x="72" y="352" class="s">Large flood and cyclone events, India</text>
+    <circle cx="326" cy="320" r="5" fill="#22c55e"/><circle cx="326" cy="320" r="9" fill="#22c55e" opacity="0.25"/>
+    <!-- 3 -->
+    <rect x="50" y="402" width="300" height="104" rx="14" class="card"/>
+    <rect x="50" y="402" width="5" height="104" rx="2.5" fill="#38bdf8"/>
+    <text x="72" y="432" class="t">GloFAS · Open-Meteo</text>
+    <text x="72" y="456" class="s">7-day river &amp; rain ensembles (51 members)</text>
+    <text x="72" y="476" class="s">20 years of river history · terrain</text>
+    <circle cx="326" cy="424" r="5" fill="#22c55e"/><circle cx="326" cy="424" r="9" fill="#22c55e" opacity="0.25"/>
+    <!-- 4 -->
+    <rect x="50" y="522" width="300" height="88" rx="14" class="card"/>
+    <rect x="50" y="522" width="5" height="88" rx="2.5" fill="#22c55e"/>
+    <text x="72" y="552" class="t">OpenStreetMap</text>
+    <text x="72" y="576" class="s">Roads · bridges · river · buildings</text>
+    <!-- 5 -->
+    <rect x="50" y="626" width="300" height="104" rx="14" class="card"/>
+    <rect x="50" y="626" width="5" height="104" rx="2.5" fill="#a78bfa"/>
+    <text x="72" y="656" class="t">District records</text>
+    <text x="72" y="680" class="s">50 relief camps (2024 flood report)</text>
+    <text x="72" y="700" class="s">Census 2011 population</text>
+  </g>
+  <g transform="translate(50 752)">
+    <rect width="300" height="86" rx="12" fill="#0b1226" stroke="#334155" stroke-dasharray="5 5"/>
+    <text x="20" y="28" class="s" fill="#cbd5e1">Cached on disk · offline mode</text>
+    <text x="20" y="50" class="s">A failed feed shows "unavailable",</text>
+    <text x="20" y="70" class="s">never stale data passed off as new</text>
+  </g>
+
+  <!-- data -> backend arrows -->
+  <g fill="none" stroke="url(#flow)" stroke-width="2.4" marker-end="url(#arrow)">
+    <path d="M350 230 C 382 230, 384 330, 414 330"/>
+    <path d="M350 342 C 380 342, 386 350, 414 352"/>
+    <path d="M350 454 C 380 454, 386 380, 414 376"/>
+    <path d="M350 566 C 384 566, 386 600, 414 600"/>
+    <path d="M350 678 C 384 678, 386 620, 414 618"/>
+  </g>
+
+  <!-- ===================== CENTER: backend ===================== -->
+  <text x="420" y="160" class="k">BACKEND · FASTAPI · PYTHON 3.13</text>
+  <rect x="414" y="176" width="768" height="760" rx="22" fill="#0b1329" fill-opacity="0.85" stroke="url(#edge)" stroke-width="1.6" filter="url(#shadow)"/>
+
+  <!-- API bar -->
+  <rect x="436" y="196" width="724" height="58" rx="14" fill="url(#api)"/>
+  <text x="460" y="223" fill="#fff" font-size="16" font-weight="700">REST /api/v1</text>
+  <text x="460" y="243" fill="#dbeafe" font-size="12.5">37 endpoints · WebSocket progress · HTTP fallback</text>
+  <g transform="translate(860 210)">
+    <rect width="132" height="30" rx="15" fill="#ffffff" fill-opacity="0.16"/>
+    <text x="66" y="20" text-anchor="middle" fill="#fff" font-size="12.5" font-weight="600">rate limits</text>
+    <rect x="142" width="140" height="30" rx="15" fill="#ffffff" fill-opacity="0.16"/>
+    <text x="212" y="20" text-anchor="middle" fill="#fff" font-size="12.5" font-weight="600">2 heavy-job slots</text>
+  </g>
+
+  <!-- OPS -->
+  <rect x="436" y="272" width="380" height="196" rx="16" class="card"/>
+  <rect x="436" y="272" width="380" height="5" rx="2.5" fill="#f97316"/>
+  <text x="458" y="306" class="t">⚑  OPS · Command Center</text>
+  <g class="s">
+    <text x="458" y="334">●  Feed poller: alerts 10 min · rivers 3 h</text>
+    <text x="458" y="358">●  River risk: Gumbel 2 / 5 / 20-year floods</text>
+    <text x="458" y="382">●  Ensemble exceedance → Normal / Watch /</text>
+    <text x="476" y="400">Warning / Severe for 22 districts</text>
+    <text x="458" y="424">●  Advisor: evidence E1..En → brief</text>
+    <text x="458" y="448">●  Exercise scenario (labelled, per viewer)</text>
+  </g>
+
+  <!-- AI -->
+  <rect x="832" y="272" width="328" height="196" rx="16" class="card"/>
+  <rect x="832" y="272" width="328" height="5" rx="2.5" fill="#f472b6"/>
+  <text x="854" y="306" class="t">✦  AI LAYER</text>
+  <g transform="translate(854 322)">
+    <rect width="78" height="26" rx="13" fill="#831843" fill-opacity="0.45"/><text x="39" y="18" text-anchor="middle" class="chip" fill="#fbcfe8">Groq</text>
+    <rect x="86" width="84" height="26" rx="13" fill="#831843" fill-opacity="0.3"/><text x="128" y="18" text-anchor="middle" class="chip" fill="#fbcfe8">Gemini</text>
+    <rect x="178" width="84" height="26" rx="13" fill="#831843" fill-opacity="0.3"/><text x="220" y="18" text-anchor="middle" class="chip" fill="#fbcfe8">Claude</text>
+  </g>
+  <g class="s">
+    <text x="854" y="378">◆  Guardrail: every number, evidence id</text>
+    <text x="872" y="396">and district must exist in the evidence</text>
+    <text x="854" y="420">◆  Counts &amp; engine numbers filled by system</text>
+    <text x="854" y="444">◆  Fails? → rule-based brief, no AI text</text>
+  </g>
+
+  <!-- ENGINE -->
+  <rect x="436" y="486" width="724" height="208" rx="16" class="card" stroke="#0891b2" stroke-opacity="0.8"/>
+  <rect x="436" y="486" width="724" height="5" rx="2.5" fill="#22d3ee"/>
+  <text x="458" y="520" class="t">⚙  ENGINE</text>
+  <g transform="translate(550 504)">
+    <rect width="122" height="26" rx="13" fill="#164e63" stroke="#22d3ee" stroke-opacity="0.6"/>
+    <text x="61" y="18" text-anchor="middle" fill="#a5f3fc" font-size="12" font-weight="700">domain-free</text>
+  </g>
+  <g transform="translate(458 540)">
+    <rect width="220" height="46" rx="10" fill="#0c2a3a"/><text x="16" y="21" fill="#e0f2fe" font-size="13.5" font-weight="650">Monte Carlo</text><text x="16" y="38" class="s" font-size="11.5">500 futures · LHS · ~6 s</text>
+    <rect x="232" width="220" height="46" rx="10" fill="#0c2a3a"/><text x="248" y="21" fill="#e0f2fe" font-size="13.5" font-weight="650">Red Team</text><text x="248" y="38" class="s" font-size="11.5">knockouts · failure boxes</text>
+    <rect x="464" width="216" height="46" rx="10" fill="#0c2a3a"/><text x="480" y="21" fill="#e0f2fe" font-size="13.5" font-weight="650">Sensitivity</text><text x="480" y="38" class="s" font-size="11.5">Sobol · correlation</text>
+    <rect y="56" width="220" height="46" rx="10" fill="#0c2a3a"/><text x="16" y="77" fill="#e0f2fe" font-size="13.5" font-weight="650">Value of information</text><text x="16" y="94" class="s" font-size="11.5">what to check first</text>
+    <rect x="232" y="56" width="220" height="46" rx="10" fill="#0c2a3a"/><text x="248" y="77" fill="#e0f2fe" font-size="13.5" font-weight="650">NSGA-II optimiser</text><text x="248" y="94" class="s" font-size="11.5">Pareto plan options</text>
+    <rect x="464" y="56" width="216" height="46" rx="10" fill="#0c2a3a"/><text x="480" y="77" fill="#e0f2fe" font-size="13.5" font-weight="650">Calibration</text><text x="480" y="94" class="s" font-size="11.5">rating curve · 2022 replay</text>
+  </g>
+  <text x="798" y="676" text-anchor="middle" class="mono" fill="#67e8f9" font-size="15">simulate(scenario, plan, conditions) → metrics</text>
+
+  <!-- DOMAINS -->
+  <g transform="translate(436 712)">
+    <rect width="372" height="102" rx="16" fill="#0f2a1d" stroke="#22c55e" stroke-opacity="0.7"/>
+    <text x="22" y="34" class="t">≋  Flood</text>
+    <rect x="292" y="16" width="62" height="24" rx="12" fill="#166534"/><text x="323" y="33" text-anchor="middle" fill="#bbf7d0" font-size="12" font-weight="700">built</text>
+    <text x="22" y="60" class="s">48 h hour-by-hour · real road graph (Silchar)</text>
+    <text x="22" y="80" class="s">terrain thresholds · boats · shelters · compliance</text>
+    <rect x="388" width="160" height="102" rx="16" class="card" stroke-dasharray="6 5"/>
+    <text x="410" y="34" class="t" fill="#94a3b8">🔥 Fire</text>
+    <text x="410" y="60" class="s">interface ready</text>
+    <text x="410" y="80" class="s" fill="#64748b">later</text>
+    <rect x="564" width="160" height="102" rx="16" class="card" stroke-dasharray="6 5"/>
+    <text x="586" y="34" class="t" fill="#94a3b8">👥 Crowd</text>
+    <text x="586" y="60" class="s">interface ready</text>
+    <text x="586" y="80" class="s" fill="#64748b">later</text>
+  </g>
+
+  <!-- STORAGE -->
+  <g transform="translate(436 832)">
+    <rect width="724" height="82" rx="16" fill="#241a05" stroke="#f59e0b" stroke-opacity="0.75"/>
+    <text x="22" y="34" class="t">⛁  STORAGE · SQLite</text>
+    <text x="22" y="60" class="s">runs · plans · field reports · alerts · indicators · briefs · decisions</text>
+    <!-- chain -->
+    <g transform="translate(520 22)" fill="none" stroke="#fbbf24" stroke-width="2.4">
+      <rect width="40" height="22" rx="11"/><rect x="30" width="40" height="22" rx="11"/>
+      <rect x="60" width="40" height="22" rx="11"/><rect x="90" width="40" height="22" rx="11"/>
+    </g>
+    <text x="520" y="66" fill="#fde68a" font-size="12" font-weight="600">hash-chained decision log</text>
+  </g>
+
+  <!-- internal arrows: ops -> engine, ops <-> ai -->
+  <g fill="none" stroke-width="2.2">
+    <path d="M626 468 L626 486" stroke="#7dd3fc" marker-end="url(#arrow)"/>
+    <path d="M816 360 L832 360" stroke="#f9a8d4" marker-end="url(#arrowP)" marker-start="url(#arrowP)"/>
+    <path d="M798 694 L798 712" stroke="#7dd3fc" marker-end="url(#arrow)"/>
+  </g>
+
+  <!-- ===================== RIGHT: frontend + human ===================== -->
+  <text x="1236" y="160" class="k">FRONTEND · REACT 19 · VITE</text>
+  <g filter="url(#shadow)">
+    <rect x="1230" y="178" width="320" height="128" rx="14" class="card"/>
+    <rect x="1230" y="178" width="5" height="128" rx="2.5" fill="#60a5fa"/>
+    <text x="1252" y="208" class="t">◉  Command Center</text>
+    <text x="1252" y="234" class="s">India map · live alerts · feed health</text>
+    <text x="1252" y="254" class="s">22 districts by flood level</text>
+    <text x="1252" y="274" class="s">AI strategy brief · Exercise mode</text>
+    <text x="1252" y="294" class="s">operating modes (Army, Police, ...)</text>
+
+    <rect x="1230" y="322" width="320" height="150" rx="14" class="card"/>
+    <rect x="1230" y="322" width="5" height="150" rx="2.5" fill="#22d3ee"/>
+    <text x="1252" y="352" class="t">▦  Evacuation Console</text>
+    <text x="1252" y="378" class="s">Situation · Plan · Resources · Results</text>
+    <text x="1252" y="398" class="s">Red Team · Check next · Options</text>
+    <text x="1252" y="424" class="s">Real-terrain 3D (Cesium) · 3D lite</text>
+    <text x="1252" y="444" class="s">(three.js) · 2D (MapLibre)</text>
+    <text x="1252" y="464" class="s" fill="#67e8f9">hour-by-hour flood playback</text>
+
+    <rect x="1230" y="488" width="320" height="94" rx="14" class="card"/>
+    <rect x="1230" y="488" width="5" height="94" rx="2.5" fill="#fbbf24"/>
+    <text x="1252" y="518" class="t">☰  Decision Log · Replay</text>
+    <text x="1252" y="544" class="s">chain intact / broken at row N</text>
+    <text x="1252" y="564" class="s">June 2022 Silchar flood, day by day</text>
+  </g>
+
+  <!-- human -->
+  <g transform="translate(1230 610)" filter="url(#shadow)">
+    <rect width="320" height="210" rx="18" fill="url(#human)" stroke="#4ade80" stroke-opacity="0.8" stroke-width="1.6"/>
+    <circle cx="70" cy="74" r="40" fill="#14532d" stroke="#4ade80" stroke-width="2"/>
+    <circle cx="70" cy="62" r="13" fill="#bbf7d0"/>
+    <path d="M46 98 C 50 80, 90 80, 94 98" fill="#bbf7d0"/>
+    <text x="128" y="64" fill="#dcfce7" font-size="18" font-weight="800">OFFICER</text>
+    <text x="128" y="88" fill="#dcfce7" font-size="18" font-weight="800">DECIDES</text>
+    <g transform="translate(22 132)">
+      <rect width="86" height="32" rx="10" fill="#16a34a"/><text x="43" y="21" text-anchor="middle" fill="#fff" font-size="13" font-weight="700">✓ Accept</text>
+      <rect x="96" width="86" height="32" rx="10" fill="#ffffff" fill-opacity="0.12"/><text x="139" y="21" text-anchor="middle" fill="#e2e8f0" font-size="13" font-weight="700">✎ Edit</text>
+      <rect x="192" width="86" height="32" rx="10" fill="#7f1d1d" fill-opacity="0.7"/><text x="235" y="21" text-anchor="middle" fill="#fecaca" font-size="13" font-weight="700">✕ Reject</text>
+    </g>
+    <text x="22" y="190" fill="#86efac" font-size="12.5">logged with the evidence it rested on</text>
+  </g>
+
+  <!-- backend <-> frontend arrows -->
+  <g fill="none" stroke="url(#flowR)" stroke-width="2.4">
+    <path d="M1182 242 L1226 242" marker-end="url(#arrowP)" marker-start="url(#arrowP)"/>
+    <path d="M1182 398 L1226 398" marker-end="url(#arrowP)" marker-start="url(#arrowP)"/>
+    <path d="M1182 534 L1226 534" marker-end="url(#arrowP)" marker-start="url(#arrowP)"/>
+  </g>
+  <!-- human -> storage -->
+  <path d="M1300 820 C 1300 900, 1240 873, 1166 873" fill="none" stroke="#4ade80" stroke-width="2.6" stroke-dasharray="7 6" marker-end="url(#arrowG)"/>
+
+  <!-- footer: deploy -->
+  <g transform="translate(56 960)">
+    <text y="16" class="k">RUNS ON</text>
+    <g transform="translate(96 -2)">
+      <rect width="210" height="28" rx="14" fill="#ffffff" fill-opacity="0.06" stroke="#334155"/>
+      <text x="105" y="19" text-anchor="middle" fill="#cbd5e1" font-size="12.5" font-weight="600">Frontend → Vercel</text>
+      <rect x="222" width="250" height="28" rx="14" fill="#ffffff" fill-opacity="0.06" stroke="#334155"/>
+      <text x="347" y="19" text-anchor="middle" fill="#cbd5e1" font-size="12.5" font-weight="600">API → Render (Docker) + disk</text>
+      <rect x="484" width="230" height="28" rx="14" fill="#ffffff" fill-opacity="0.06" stroke="#334155"/>
+      <text x="599" y="19" text-anchor="middle" fill="#cbd5e1" font-size="12.5" font-weight="600">CI → GitHub Actions</text>
+      <rect x="726" width="240" height="28" rx="14" fill="#ffffff" fill-opacity="0.06" stroke="#334155"/>
+      <text x="846" y="19" text-anchor="middle" fill="#cbd5e1" font-size="12.5" font-weight="600">~150 automated tests</text>
+    </g>
+  </g>
+  <text x="1544" y="980" text-anchor="end" fill="#475569" font-size="12">AEGIS-X · MIT</text>
+</svg>
