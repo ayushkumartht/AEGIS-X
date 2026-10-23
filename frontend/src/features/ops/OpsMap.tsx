@@ -70,11 +70,31 @@ export function OpsMap({ districts, events, selectedId, focus, onSelect }: Props
   const [basemap, setBasemap] = useState<BasemapId>(savedBasemap)
   const [layersOpen, setLayersOpen] = useState(false)
   const [legendOpen, setLegendOpen] = useState(true)
+  const pulses = useRef(new Map<string, maplibregl.Marker>())
 
   const paint = () => {
     const map = mapRef.current
     if (!map || !ready.current) return
     const { districts: ds, events: ev, selectedId: sel } = latest.current
+
+    // pulsing rings are CSS-animated HTML markers: the browser animates them without redrawing the map
+    const hot = new Map(ds.filter((d) => d.level === 'severe' || d.level === 'warning').map((d) => [d.id, d]))
+    for (const [id, marker] of pulses.current) {
+      if (!hot.has(id)) {
+        marker.remove()
+        pulses.current.delete(id)
+      }
+    }
+    for (const [id, d] of hot) {
+      let marker = pulses.current.get(id)
+      if (!marker) {
+        const el = document.createElement('div')
+        el.className = 'ops-pulse'
+        marker = new maplibregl.Marker({ element: el, anchor: 'center' }).setLngLat([d.lon, d.lat]).addTo(map)
+        pulses.current.set(id, marker)
+      }
+      marker.getElement().style.color = LEVEL_COLOR[d.level]
+    }
     const dFeatures = ds.map((d) => ({
       type: 'Feature',
       geometry: { type: 'Point', coordinates: [d.lon, d.lat] },
@@ -142,7 +162,6 @@ export function OpsMap({ districts, events, selectedId, focus, onSelect }: Props
 
     const popup = new maplibregl.Popup({ closeButton: true, maxWidth: '300px', offset: 16, className: 'ops-popup' })
     const tip = new maplibregl.Popup({ closeButton: false, closeOnClick: false, offset: 14, className: 'ops-tip' })
-    let raf = 0
 
     map.on('load', () => {
       map.addSource('alerts', { type: 'geojson', data: COLLECTION([]) })
@@ -159,14 +178,6 @@ export function OpsMap({ districts, events, selectedId, focus, onSelect }: Props
           'circle-stroke-color': '#ffffff',
           'circle-opacity': 0.95,
         },
-      })
-      // pulsing ring behind districts above normal; the radius and fade are animated below
-      map.addLayer({
-        id: 'districts-pulse',
-        type: 'circle',
-        source: 'districts',
-        filter: ['in', ['get', 'level'], ['literal', ['severe', 'warning']]],
-        paint: { 'circle-radius': 14, 'circle-color': levelColor, 'circle-opacity': 0.35, 'circle-blur': 0.3 },
       })
       map.addLayer({
         id: 'districts',
@@ -203,17 +214,6 @@ export function OpsMap({ districts, events, selectedId, focus, onSelect }: Props
       ready.current = true
       applyBasemap(initial)
       paint()
-
-      if (!window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
-        const t0 = performance.now()
-        const tick = (now: number) => {
-          const phase = ((now - t0) % 1800) / 1800
-          map.setPaintProperty('districts-pulse', 'circle-radius', 12 + phase * 22)
-          map.setPaintProperty('districts-pulse', 'circle-opacity', 0.45 * (1 - phase))
-          raf = requestAnimationFrame(tick)
-        }
-        raf = requestAnimationFrame(tick)
-      }
     })
 
     // hover: enlarge the marker and show a small card
@@ -226,12 +226,10 @@ export function OpsMap({ districts, events, selectedId, focus, onSelect }: Props
     }
     map.on('mousemove', 'districts', (e) => {
       const f = e.features?.[0]
-      if (!f) return
-      if (hoverId !== f.id) {
-        if (hoverId !== undefined) map.setFeatureState({ source: 'districts', id: hoverId }, { hover: false })
-        hoverId = f.id
-        if (hoverId !== undefined) map.setFeatureState({ source: 'districts', id: hoverId }, { hover: true })
-      }
+      if (!f || hoverId === f.id) return // same district: nothing to redraw
+      if (hoverId !== undefined) map.setFeatureState({ source: 'districts', id: hoverId }, { hover: false })
+      hoverId = f.id
+      if (hoverId !== undefined) map.setFeatureState({ source: 'districts', id: hoverId }, { hover: true })
       const p = f.properties
       const color = LEVEL_COLOR[p.level as keyof typeof LEVEL_COLOR] ?? LEVEL_COLOR.unknown
       map.getCanvas().style.cursor = 'pointer'
@@ -284,8 +282,10 @@ export function OpsMap({ districts, events, selectedId, focus, onSelect }: Props
         .addTo(map)
     })
 
+    const markers = pulses.current
     return () => {
-      cancelAnimationFrame(raf)
+      markers.forEach((m) => m.remove())
+      markers.clear()
       ready.current = false
       map.remove()
       mapRef.current = null

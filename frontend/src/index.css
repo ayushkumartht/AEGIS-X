@@ -182,3 +182,12 @@
 .ops-meta { margin-top: 8px; font-size: 11px; color: #94a3b8; }
 .ops-link { display: inline-block; margin-top: 10px; font-size: 12px; font-weight: 600; color: #2563eb; }
 .ops-link:hover { text-decoration: underline; }
+
+/* Command Center map: pulsing ring around districts at warning or severe (animated by CSS, not by the map) */
+.ops-pulse { width: 26px; height: 26px; pointer-events: none; }
+.ops-pulse::before {
+  content: ""; position: absolute; inset: 0; border-radius: 999px; background: currentColor;
+  animation: ops-pulse 1.8s ease-out infinite; will-change: transform, opacity;
+}
+@keyframes ops-pulse { from { transform: scale(0.7); opacity: 0.55; } to { transform: scale(2.6); opacity: 0; } }
+@media (prefers-reduced-motion: reduce) { .ops-pulse::before { animation: none; opacity: 0.2; transform: scale(1.6); } }

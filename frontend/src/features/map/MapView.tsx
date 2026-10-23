@@ -28,11 +28,14 @@ maplibregl.setWorkerUrl(workerUrl)
 
 const isDark = () => document.documentElement.classList.contains('dark')
 const NONE = ['==', ['get', 'id'], '__none__'] as maplibregl.FilterSpecification
+// `match` looks ids up in a table; `in` with a literal list scans the list for every feature, which
+// is thousands of roads times thousands of cut edges on each move of the water-level slider.
+const unique = <T,>(ids: T[]) => [...new Set(ids)]
 const inList = (ids: (string | number)[], prop = 'id') =>
-  (ids.length ? ['in', ['get', prop], ['literal', ids]] : ['==', ['get', prop], '__none__']) as maplibregl.FilterSpecification
+  (ids.length ? ['match', ['get', prop], unique(ids), true, false] : ['==', ['get', prop], '__none__']) as maplibregl.FilterSpecification
 
 const colorWhen = (ids: string[], hit: string, miss: string) =>
-  ['case', ['in', ['get', 'id'], ['literal', ids]], hit, miss] as maplibregl.ExpressionSpecification
+  (ids.length ? ['match', ['get', 'id'], unique(ids), hit, miss] : miss) as maplibregl.ExpressionSpecification
 
 function popupText(title: string, rows: [string, string][]): HTMLElement {
   const el = document.createElement('div')

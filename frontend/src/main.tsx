@@ -10,7 +10,9 @@ window.addEventListener('vite:preloadError', (event) => {
   if (reloadForNewBuild()) event.preventDefault()
 })
 
-const queryClient = new QueryClient()
+// Don't refetch everything when the window regains focus: district layers are several MB, and
+// live views (Command Center) poll on their own intervals.
+const queryClient = new QueryClient({ defaultOptions: { queries: { refetchOnWindowFocus: false } } })
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>

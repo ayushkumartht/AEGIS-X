@@ -53,7 +53,23 @@ export default function ConsolePage({ initialDistrict: fixed }: { initialDistric
   const initialDistrict = fixed ?? params.district
   const { district, setDistrict, tab, setTab, plan, setPlan, whatIf, level, setLevel, sim: result } = useConsole()
   const sim = useRunSim()
-  const [view, setView] = useState<'cesium' | '3d' | '2d'>('cesium')
+  // the light 2D map first: the 3D globe is heavy on laptops, so it opens only when chosen (and is remembered)
+  const [view, setViewState] = useState<'cesium' | '3d' | '2d'>(() => {
+    try {
+      const v = localStorage.getItem('aegis:console-view')
+      return v === 'cesium' || v === '3d' ? v : '2d'
+    } catch {
+      return '2d'
+    }
+  })
+  const setView = (v: 'cesium' | '3d' | '2d') => {
+    setViewState(v)
+    try {
+      localStorage.setItem('aegis:console-view', v)
+    } catch {
+      /* storage blocked: the choice just isn't remembered */
+    }
+  }
 
   useEffect(() => {
     if (initialDistrict && initialDistrict !== useConsole.getState().district) setDistrict(initialDistrict)
@@ -82,9 +98,15 @@ export default function ConsolePage({ initialDistrict: fixed }: { initialDistric
   const terrain = useQuery({ queryKey: ['terrain', district], queryFn: () => api.terrain(district), retry: false, enabled: layers.isSuccess })
   const baseline = useQuery({ queryKey: ['baseline', district], queryFn: () => api.baselinePlan(district), retry: false, enabled: layers.isSuccess })
   const closed = whatIf.bridge_closed ?? []
+  // ask the server once the slider settles, not for every 0.1 m step while it is dragged
+  const [floodLevel, setFloodLevel] = useState(level)
+  useEffect(() => {
+    const id = window.setTimeout(() => setFloodLevel(level), 150)
+    return () => window.clearTimeout(id)
+  }, [level])
   const flood = useQuery({
-    queryKey: ['flood-state', district, level, closed.join(',')],
-    queryFn: () => api.floodState(district, level, closed),
+    queryKey: ['flood-state', district, floodLevel, closed.join(',')],
+    queryFn: () => api.floodState(district, floodLevel, closed),
     enabled: layers.isSuccess,
     placeholderData: (prev) => prev,
   })
@@ -140,8 +162,9 @@ export default function ConsolePage({ initialDistrict: fixed }: { initialDistric
       )}
       {layers.isError && !apiDown && <div className="border-b bg-destructive/10 px-4 py-2 text-sm text-risk" role="alert">{String(layers.error)}</div>}
 
-      <main className="grid min-h-0 flex-1 grid-cols-1 lg:grid-cols-[1fr_34rem]">
-        <section className="relative min-h-[40vh]">
+      {/* below lg the map and the panel share the height (panel scrolls inside), so nothing spills over */}
+      <main className="grid min-h-0 flex-1 grid-cols-1 grid-rows-[minmax(0,42fr)_minmax(0,58fr)] overflow-hidden lg:grid-cols-[1fr_34rem] lg:grid-rows-1">
+        <section className="relative min-h-0">
           {data && view === 'cesium' ? (
             <CesiumScene district={district} layers={data} flood={flood.data} level={level} />
           ) : data && view === '3d' && terrain.data ? (
@@ -192,7 +215,7 @@ export default function ConsolePage({ initialDistrict: fixed }: { initialDistric
           )}
         </section>
 
-        <aside className="flex min-h-0 flex-col border-l bg-muted/30">
+        <aside className="flex min-h-0 flex-col border-t bg-muted/30 lg:border-t-0 lg:border-l">
           {/* plan health at a glance: stays in view whichever tab is open */}
           <div className="flex items-center gap-3 border-b bg-card px-4 py-3">
             {result ? (
@@ -215,11 +238,11 @@ export default function ConsolePage({ initialDistrict: fixed }: { initialDistric
             )}
           </div>
           <Tabs value={tab} onValueChange={changeTab} className="flex min-h-0 flex-1 flex-col gap-0">
-            <TabsList className="mx-3 mt-3 grid h-auto w-auto grid-cols-7 gap-0.5 rounded-xl bg-card p-1 shadow-xs">
+            <TabsList className="relative z-10 mx-3 mt-3 grid h-auto w-auto shrink-0 grid-cols-7 gap-0.5 rounded-xl border bg-card p-1 shadow-xs">
               {TABS.map(([id, label, Icon]) => (
-                <TabsTrigger key={id} value={id} className="flex-col gap-1 rounded-lg px-0.5 py-1.5 text-[10px] font-medium leading-none data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm">
+                <TabsTrigger key={id} value={id} title={label} className="min-w-0 flex-col gap-1 rounded-lg px-0.5 py-1.5 text-[10px] font-medium leading-none data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm">
                   <Icon className="size-4" aria-hidden />
-                  {label}
+                  <span className="max-w-full truncate">{label}</span>
                 </TabsTrigger>
               ))}
             </TabsList>
