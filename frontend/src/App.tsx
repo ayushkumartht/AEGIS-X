@@ -1,6 +1,7 @@
 import { lazy, Suspense } from 'react'
-import { BrowserRouter, Routes, Route } from 'react-router-dom'
+import { BrowserRouter, Routes, Route, useLocation } from 'react-router-dom'
 import { ScrollManager } from '@/components/site/ScrollManager'
+import { RouteErrorBoundary } from '@/components/site/RouteErrorBoundary'
 import LandingPage from './pages/LandingPage'
 
 // Docs and the console (Recharts, MapLibre) load only when visited, keeping the landing page light.
@@ -10,11 +11,17 @@ const ReplayPage = lazy(() => import('./pages/ReplayPage'))
 const AuditPage = lazy(() => import('./pages/AuditPage'))
 const CommandCenterPage = lazy(() => import('./pages/CommandCenterPage'))
 
-function App() {
+function Pages() {
+  const { pathname } = useLocation()
   return (
-    <BrowserRouter>
-      <ScrollManager />
-      <Suspense fallback={<div className="min-h-screen bg-background" />}>
+    <RouteErrorBoundary resetKey={pathname}>
+      <Suspense
+        fallback={
+          <div className="flex min-h-screen items-center justify-center bg-background">
+            <span className="size-6 animate-spin rounded-full border-2 border-muted border-t-primary" aria-label="Loading" />
+          </div>
+        }
+      >
         <Routes>
           <Route path="/" element={<LandingPage />} />
           <Route path="/docs" element={<DocumentationPage />} />
@@ -26,6 +33,15 @@ function App() {
           <Route path="/command" element={<CommandCenterPage />} />
         </Routes>
       </Suspense>
+    </RouteErrorBoundary>
+  )
+}
+
+function App() {
+  return (
+    <BrowserRouter>
+      <ScrollManager />
+      <Pages />
     </BrowserRouter>
   )
 }
