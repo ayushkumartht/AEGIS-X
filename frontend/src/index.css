@@ -159,3 +159,26 @@
 .aegis-label-bridge { border-left: 3px solid #f59e0b; }
 .aegis-label-shelter { border-left: 3px solid #22c55e; }
 .aegis-label-staging { border-left: 3px solid #8b5cf6; }
+
+/* Command Center map: hover card and click popup */
+.ops-popup .maplibregl-popup-content,
+.ops-tip .maplibregl-popup-content {
+  border-radius: 12px;
+  box-shadow: 0 10px 30px -8px rgb(15 23 42 / 0.35), 0 0 0 1px rgb(15 23 42 / 0.06);
+  font-family: "Geist Variable", ui-sans-serif, system-ui, sans-serif;
+  color: #0f172a;
+}
+.ops-popup .maplibregl-popup-content { padding: 14px 16px 12px; min-width: 220px; }
+.ops-popup .maplibregl-popup-close-button { font-size: 18px; right: 6px; top: 4px; color: #64748b; }
+.ops-tip .maplibregl-popup-content { padding: 7px 10px; pointer-events: none; }
+.ops-tip .maplibregl-popup-tip, .ops-popup .maplibregl-popup-tip { display: none; }
+.ops-tip-row { display: flex; align-items: center; gap: 6px; font-size: 13px; }
+.ops-tip-sub { margin-top: 2px; font-size: 11px; color: #64748b; }
+.ops-dot { display: inline-block; width: 8px; height: 8px; border-radius: 999px; flex: none; }
+.ops-chip { display: inline-flex; align-items: center; gap: 5px; padding: 2px 8px; border-radius: 999px; font-size: 11px; font-weight: 600; }
+.ops-title { margin-top: 8px; font-size: 15px; font-weight: 600; letter-spacing: -0.01em; }
+.ops-sub { font-size: 12px; color: #64748b; }
+.ops-body { margin-top: 8px; font-size: 12px; line-height: 1.45; color: #334155; }
+.ops-meta { margin-top: 8px; font-size: 11px; color: #94a3b8; }
+.ops-link { display: inline-block; margin-top: 10px; font-size: 12px; font-weight: 600; color: #2563eb; }
+.ops-link:hover { text-decoration: underline; }
