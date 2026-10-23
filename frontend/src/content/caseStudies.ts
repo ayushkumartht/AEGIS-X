@@ -14,6 +14,10 @@ export type CaseStudy = {
   challenge: string
   aegis: string[]
   source: { label: string; url: string }
+  /** Satellite pair shown as a drag-to-compare slider instead of the photo. */
+  compare?: { before: string; after: string; beforeLabel: string; afterLabel: string; credit: string }
+  /** A small supporting figure shown next to the facts. */
+  inset?: { src: string; caption: string; credit: string }
 }
 
 export const CASE_STUDIES: CaseStudy[] = [
@@ -38,6 +42,13 @@ export const CASE_STUDIES: CaseStudy[] = [
       'Re-run in seconds as each new rainfall report arrives',
     ],
     source: { label: 'NASA Earth Observatory', url: 'https://science.nasa.gov/earth/earth-observatory/historic-rainfall-floods-southeast-india-87131/' },
+    compare: {
+      before: '/images/chennai-sat-before.jpg',
+      after: '/images/chennai-sat-after.jpg',
+      beforeLabel: '21 Oct 2015',
+      afterLabel: '8 Dec 2015',
+      credit: 'NASA Earth Observatory · Landsat 8 (USGS)',
+    },
   },
   {
     id: 'kerala-2018',
@@ -60,6 +71,18 @@ export const CASE_STUDIES: CaseStudy[] = [
       'Pick the plan that holds in the worst 10% of futures, not the average',
     ],
     source: { label: 'NASA Earth Observatory', url: 'https://science.nasa.gov/earth/earth-observatory/a-flood-for-the-century-in-india-92638' },
+    compare: {
+      before: '/images/kerala-before.jpg',
+      after: '/images/kerala-after.jpg',
+      beforeLabel: '6 Feb 2018',
+      afterLabel: '22 Aug 2018',
+      credit: 'NASA Earth Observatory · Landsat (USGS) & Copernicus Sentinel (ESA)',
+    },
+    inset: {
+      src: '/images/india-rainfall.jpg',
+      caption: 'Rain measured from space, 19 Jul – 18 Aug 2018. Kerala is the red hotspot on the south-west coast.',
+      credit: 'NASA Earth Observatory · IMERG / GPM',
+    },
   },
   {
     id: 'uttarakhand-2013',

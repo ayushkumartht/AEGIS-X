@@ -1,13 +1,14 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { Link } from 'react-router-dom'
 import { AnimatePresence, animate, motion, useInView, useReducedMotion } from 'motion/react'
-import { ArrowRight, Calculator, Link2, Tag, UserCheck } from 'lucide-react'
+import { ArrowRight, Calculator, Clock3, CloudRainWind, Link2, Tag, Unplug, UserCheck } from 'lucide-react'
 import { SiteHeader } from '@/components/site/SiteHeader'
 import { HeroCinematic } from '@/components/site/HeroCinematic'
 import { SiteFooter } from '@/components/site/SiteFooter'
 import { Reveal } from '@/components/site/Reveal'
 import { ScenarioChart } from '@/components/visuals/ScenarioChart'
-import { BeforeAfter } from '@/components/visuals/BeforeAfter'
+import { CaseStudies } from '@/components/visuals/CaseStudies'
+import { FloodGallery } from '@/components/visuals/FloodGallery'
 import { HumanMini, RedTeamGrid } from '@/components/visuals/FeatureVisuals'
 import { cn } from '@/lib/utils'
 
@@ -60,6 +61,12 @@ const STEPS = [
     body: 'The officer reads the evidence, accepts or rejects, and the decision is written to a log that cannot be quietly edited.',
     visual: <HumanMini />,
   },
+]
+
+const PROBLEMS = [
+  { icon: CloudRainWind, title: 'The future is a range', body: 'A plan that works at 100 mm of rain can collapse at 200 mm. A single forecast hides that cliff.' },
+  { icon: Unplug, title: 'Plans hide one weak link', body: 'One bridge, one shelter, one road the plan quietly depends on, usually found only after it fails.' },
+  { icon: Clock3, title: 'No time, no second try', body: 'Decisions happen in hours. Mock drills test one fixed scenario a few times a year.' },
 ]
 
 const PRINCIPLES = [
@@ -182,8 +189,32 @@ export default function LandingPage() {
       <main>
         <HeroCinematic />
 
+        {/* ---------------- Problem ---------------- */}
+        <section id="problem" className="scroll-mt-20 py-28 md:py-36">
+          <div className="mx-auto max-w-6xl px-6">
+            <Heading
+              className="mb-12"
+              eyebrow="The problem"
+              title="Floods don't break plans on an average day. They break them on the worst one."
+              body="Officers commit boats, teams and shelters before they know how high the water will go. Hover a photo."
+            />
+            <Reveal>
+              <FloodGallery />
+            </Reveal>
+            <div className="mt-16 grid gap-10 md:grid-cols-3">
+              {PROBLEMS.map((p, i) => (
+                <Reveal key={p.title} delay={i * 0.08}>
+                  <p.icon className="size-6 text-primary" strokeWidth={1.5} />
+                  <h3 className="mt-4 font-semibold tracking-tight">{p.title}</h3>
+                  <p className="mt-2 text-sm leading-relaxed text-muted-foreground">{p.body}</p>
+                </Reveal>
+              ))}
+            </div>
+          </div>
+        </section>
+
         {/* ---------------- Product ---------------- */}
-        <section id="product" className="scroll-mt-20 py-28 md:py-36">
+        <section id="product" className="scroll-mt-20 border-t py-28 md:py-36">
           <div className="mx-auto max-w-6xl px-6">
             <Heading
               className="mx-auto mb-12 text-center"
@@ -219,7 +250,7 @@ export default function LandingPage() {
               className="mb-16"
               eyebrow="How it works"
               title="Simulate. Break it. Decide."
-              body="Floods don't break plans on an average day. They break them on the worst one, so that is where AEGIS-X looks."
+              body="AEGIS-X doesn't predict one outcome. It tests the plan across the bad nights too, and attacks its own recommendation."
             />
             <div className="grid gap-6 md:grid-cols-3">
               {STEPS.map((s, i) => (
@@ -252,29 +283,18 @@ export default function LandingPage() {
           </div>
         </section>
 
-        {/* ---------------- Why: Kerala before / after ---------------- */}
-        <section className="bg-slate-950 py-28 text-white md:py-36">
-          <div className="mx-auto grid max-w-6xl items-center gap-14 px-6 md:grid-cols-[1fr_1.1fr]">
-            <Reveal>
-              <p className="text-sm font-medium text-sky-300">Kerala · August 2018</p>
-              <h2 className="mt-3 text-4xl font-semibold tracking-tight text-balance md:text-5xl">The same coast, six months apart.</h2>
-              <p className="mt-6 text-lg leading-relaxed text-white/70">
-                Drag the slider. NASA measured <span className="text-white">164% more rain</span> than normal in twenty days, and over{' '}
-                <span className="text-white">a million people</span> left their homes. Every one of those moves rested on a decision made before anyone
-                knew how high the water would go.
+        {/* ---------------- Case studies ---------------- */}
+        <section id="case-studies" className="scroll-mt-20 bg-slate-950 py-28 text-white md:py-36">
+          <div className="mx-auto max-w-6xl px-6">
+            <Reveal className="mb-14 max-w-2xl">
+              <p className="text-sm font-medium text-sky-300">Case studies</p>
+              <h2 className="mt-3 text-4xl font-semibold tracking-tight text-balance md:text-5xl">Four real floods. Four ways a plan fails.</h2>
+              <p className="mt-5 text-lg text-pretty text-white/65">
+                Figures from NASA, the IFRC and UNICEF, and the question AEGIS-X would have asked before the water arrived.
               </p>
-              <p className="mt-6 text-white/90">That decision is what AEGIS-X is for.</p>
             </Reveal>
-            <Reveal delay={0.1}>
-              <BeforeAfter
-                before="/images/kerala-before.jpg"
-                after="/images/kerala-after.jpg"
-                beforeLabel="6 Feb 2018"
-                afterLabel="22 Aug 2018"
-                alt="False-colour satellite view of the Kerala coast"
-                className="aspect-[4/5] border-white/10"
-              />
-              <p className="mt-3 text-[11px] text-white/40">NASA Earth Observatory · Landsat (USGS) and modified Copernicus Sentinel data (ESA)</p>
+            <Reveal>
+              <CaseStudies />
             </Reveal>
           </div>
         </section>
