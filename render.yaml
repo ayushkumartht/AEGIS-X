@@ -17,8 +17,9 @@ services:
     envVars:
       - key: AEGIS_ENV
         value: prod
+      # Supabase session pooler URL (postgresql://...); set it in the Render dashboard, never in git
       - key: AEGIS_DB_URL
-        value: sqlite:////var/data/aegis.db
+        sync: false
       - key: AEGIS_CORS_ORIGINS
         sync: false          # your Vercel URL, e.g. https://aegis-x.vercel.app
       - key: AEGIS_CORS_ORIGIN_REGEX
