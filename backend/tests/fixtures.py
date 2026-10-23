@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import numpy as np
 
 from aegis.ingest.district import DistrictConfig, ForecastPoint, StagingPoint
 

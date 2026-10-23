@@ -1,6 +1,5 @@
 """Tests for Pareto-front extraction."""
 from __future__ import annotations
-import pytest
 from aegis.engine.optimizer import is_dominated, pareto_front, ParetoCandidate
 
 
