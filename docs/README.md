@@ -15,4 +15,6 @@ The [project README](../README.md) is the place to start. These documents go dee
 | [fullstack-deployment-plan.md](fullstack-deployment-plan.md) | Going live: Vercel for the frontend, Render for the API |
 | [demo-guide.md](demo-guide.md) | A 10-minute walkthrough for showing the system |
 
+**Team docs (Hinglish, for the team):** [1. Problem aur solution](team/01-problem-aur-solution.md) · [2. Kaise kaam karta hai](team/02-kaise-kaam-karta-hai.md) · [3. Sawal-jawab](team/03-sawal-jawab.md) · [4. Kamiyan aur jawab](team/04-kamiyan-aur-jawab.md)
+
 Folders: [images/](images) holds the screenshots used in the README; [archive/](archive) keeps the record of a contribution that was removed from the history (for reference only).
