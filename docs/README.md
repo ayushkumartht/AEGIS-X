@@ -1,20 +1,18 @@
 # AEGIS-X documentation
 
-Read in this order.
+The [project README](../README.md) is the place to start. These documents go deeper.
 
-| # | Document | What it answers |
-|---|---|---|
-| 1 | [flood-evacuation-problem.md](flood-evacuation-problem.md) | What problem are we solving, and for whom? |
-| 2 | [flood-evacuation-solution.md](flood-evacuation-solution.md) | How does AEGIS-X solve it, at idea level? |
-| 3 | [flood-decisions-uncertainty-data.md](flood-decisions-uncertainty-data.md) | Which decisions, which uncertainties, which data, from where? (research + tested sources) |
-| 4 | [final-implementation-plan.md](final-implementation-plan.md) | **The master build plan**: architecture, stack, folders, modules, API, phases. Start every implementation task here. |
+| Document | What it answers |
+|---|---|
+| [flood-evacuation-problem.md](flood-evacuation-problem.md) | What problem are we solving, and for whom? |
+| [flood-evacuation-solution.md](flood-evacuation-solution.md) | How does AEGIS-X solve it, at idea level? |
+| [flood-decisions-uncertainty-data.md](flood-decisions-uncertainty-data.md) | Which decisions, which uncertainties, which data, from where (with tested sources) |
+| [architecture.md](architecture.md) | How the engine, domains, API and frontend fit together |
+| [domain-models.md](domain-models.md) | The flood model and the interface other domains implement |
+| [api-reference.md](api-reference.md) | The HTTP and WebSocket API |
+| [final-implementation-plan.md](final-implementation-plan.md) | The master build plan: stack, folders, modules, phases, status |
+| [command-center-plan.md](command-center-plan.md) | The Command Center: live official alerts, district flood risk, AI strategy advisor, exercise mode |
+| [fullstack-deployment-plan.md](fullstack-deployment-plan.md) | Going live: Vercel for the frontend, Render for the API |
+| [demo-guide.md](demo-guide.md) | A 10-minute walkthrough for showing the system |
 
-| 5 | [flood-final-status-and-demo.md](flood-final-status-and-demo.md) | **Latest status**: what is done, what is left, Groq setup, demo script. |
-| 6 | [fullstack-deployment-plan.md](fullstack-deployment-plan.md) | Going live: Vercel + Render, accounts, env vars. |
-| 7 | [command-center-plan.md](command-center-plan.md) | The multi-district Command Center: live official alerts, district flood risk, AI strategy advisor, tamper-evident decisions. **Built** (flood; crowd and fire later). |
-
-Folders:
-- [decisions/](decisions) : short records of design decisions as they are made.
-- [archive/](archive) : the v0 grid-demo plans, kept for history. Superseded by the final plan.
-
-Progress is tracked in the phase checklist of the final implementation plan (section 12).
+Folders: [images/](images) holds the screenshots used in the README; [archive/](archive) keeps the record of a contribution that was removed from the history (for reference only).

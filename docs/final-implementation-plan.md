@@ -4,7 +4,7 @@
 
 **Read first:** [flood-evacuation-problem.md](flood-evacuation-problem.md) (the problem), [flood-evacuation-solution.md](flood-evacuation-solution.md) (the solution), [flood-decisions-uncertainty-data.md](flood-decisions-uncertainty-data.md) (the research on decisions, uncertainty and data sources).
 
-**Replaces:** [flood-evacuation-implementation.md](flood-evacuation-implementation.md) and [flood-evacuation-steps.md](flood-evacuation-steps.md). Those described the v0 grid demo, which is built. Keep them as history (Phase 0 moves them to `docs/archive/`).
+**Replaces:** the plans for the v0 grid demo (flood-evacuation-implementation and flood-evacuation-steps), which have been removed now that the real-data system is built.
 
 ---
 
@@ -71,7 +71,7 @@ Checked against the repo on 2026-10-22. (The table that stood here on 2026-10-19
 | Real data for Silchar/Cachar: OSM roads/river/bridges/shelters/buildings, Open-Meteo forecast, GloFAS discharge, DEM | ✅ Built and committed | `data/processed/cachar`, `data/raw/cachar` |
 | Storage, audit log, field-report fusion, June 2022 replay | ✅ Built | `storage/`, `fusion/`, `replay/` |
 | API (`/api/v1`), WebSocket progress, rate limits | ✅ Built | `backend/aegis/api/` |
-| Accounts (admin/officer/viewer) and Command Center | ✅ Built | `aegis/auth.py`, `/command` |
+| Command Center (live alerts, district risk, AI brief) | ✅ Built | `aegis/ops`, `/command` |
 | LLM narration (Groq/Gemini/Claude) with number guardrail | ✅ Built; key read from `.env` | `backend/aegis/llm/` |
 | Console with 3 views (Cesium real terrain, three.js, 2D) and hour-by-hour playback | ✅ Built | `frontend/src` |
 | Deployment: Dockerfile, Render blueprint, Vercel config, CI | ✅ Built | `backend/Dockerfile`, `render.yaml`, `frontend/vercel.json` |

@@ -26,6 +26,7 @@ LEVEL_RANK = {"severe": 3, "warning": 2, "watch": 1, "normal": 0}
 MAX_ALERTS = 12
 MAX_DISTRICTS = 6
 MAX_ACTIONS = 5
+MAX_ITEMS = 5
 SECTIONS = ("situation", "worst", "actions", "check_first", "uncertainty")
 
 
@@ -71,6 +72,10 @@ Rules:
 - Choose actions only from this list, worded for the place in the evidence: pre-position rescue boats and teams; open and staff relief camps; evacuate low-lying areas; warn the public; check bridges and evacuation routes; verify a gauge reading with the district; traffic control and cordons; activate the control room; put reserve teams on standby.
 - "why" restates the cited evidence. "gain", "cost" and "risk" may only state what the evidence says (engine results, forecast shares, gauge levels). Where the evidence does not say, write "Not tested" or "Not in the evidence". Do not add facts such as weather, access problems or crew needs.
 - "district_id" is the district_id given in the evidence (for example "cachar"), or null when the evidence has none.
+- Do not restate the district counts or alert counts of the "summary" item: the system prints them above your text. Start from what is happening in particular places.
+- Keep every section short: at most {max_items} items of one sentence each. Summarise; do not copy every alert.
+- When any district_risk item is severe, warning or watch, or any gauge is above its warning level, propose actions: do not leave "actions" empty.
+- "worst": name the districts by their flood level (the district_risk items: severe first, then warning, then watch) and add the most serious gauge readings. Use the exact district names.
 - Plain wording only: do not add judgements such as "imminent", "critical" or "dangerous" that the evidence does not state.
 - Put your emphasis on {focus}, which affects which listed actions come first, not what the facts are.
 - You advise; people decide. Do not use orders ("must", "shall"); use "recommend".
@@ -257,6 +262,38 @@ def _first(ev: Evidence, kind: str, district_id: str | None = None) -> dict | No
     return found[0] if found else None
 
 
+def engine_gain_cost_risk(eng: dict) -> tuple[str, str, str]:
+    """What an action buys, costs and risks, in the evacuation engine's own tested numbers."""
+    e = eng["data"]
+    gain = (f"The baseline plan evacuates {e['evacuated_on_average_pct']}% on average and "
+            f"{e['evacuated_on_a_bad_day_pct']}% on a bad day ({e['futures_tested']} futures tested against {e['tested_against']}).")
+    cost = f"On average {e['people_moved_unnecessarily_on_average']} people would be moved who did not need to be."
+    risk = f"The plan fails in {e['plan_fails_in_pct_of_futures']}% of futures."
+    if e["single_points_of_failure"]:
+        top = e["single_points_of_failure"][0]
+        risk += f" Biggest single point of failure: {top['element']} (result drops {top['drop_pct']}%)."
+    return gain, cost, risk
+
+
+def attach_engine_numbers(sections: dict, ev: Evidence) -> None:
+    """For actions that concern a district with tested engine numbers, put those numbers in the action.
+
+    A model tends to write "not in the evidence" for what an action buys even when the engine result is
+    there. Which district an action concerns is read from the evidence it cites.
+    """
+    engines = {i["district_id"]: i for i in ev.get("engine")}
+    for act in sections["actions"]:
+        cited = [ev.items[int(i[1:]) - 1]["district_id"] for i in act["evidence"] if i[1:].isdigit() and int(i[1:]) <= len(ev.items)]
+        district = act.get("district_id") if act.get("district_id") in engines else next((d for d in cited if d in engines), None)
+        if district is None:
+            continue
+        eng = engines[district]
+        act["gain"], act["cost"], act["risk"] = engine_gain_cost_risk(eng)
+        act["district_id"] = district
+        if eng["id"] not in act["evidence"]:
+            act["evidence"].append(eng["id"])
+
+
 def rules_brief(ev: Evidence, mode: Mode) -> dict:
     """The brief from the evidence alone: no language model."""
     summary = _first(ev, "summary")
@@ -311,15 +348,8 @@ def rules_brief(ev: Evidence, mode: Mode) -> dict:
             text = verbs[d["level"]].format(d=d["district"])
         ids = [r["id"]]
         if eng:
-            e = eng["data"]
             ids.append(eng["id"])
-            gain = (f"The baseline plan evacuates {e['evacuated_on_average_pct']}% on average and "
-                    f"{e['evacuated_on_a_bad_day_pct']}% on a bad day ({e['futures_tested']} futures tested against {e['tested_against']}).")
-            cost = f"On average {e['people_moved_unnecessarily_on_average']} people would be moved who did not need to be."
-            risk = f"The plan fails in {e['plan_fails_in_pct_of_futures']}% of futures."
-            if e["single_points_of_failure"]:
-                top = e["single_points_of_failure"][0]
-                risk += f" Biggest single point of failure: {top['element']} (result drops {top['drop_pct']}%)."
+            gain, cost, risk = engine_gain_cost_risk(eng)
         else:
             gain = "Not tested: no evacuation scenario is built for this district, so this is a standard preparedness step."
             cost = f"Resources are committed before the flood, and {d['share_above_5_year_flood_pct']}% of forecast members pass the 5-year flood."
@@ -388,6 +418,7 @@ def validate(raw: object, ev: Evidence, district_ids: set[str]) -> dict | None:
         items = raw.get(key, [])
         if not isinstance(items, list) or (key == "actions" and len(items) > MAX_ACTIONS):
             return None
+        items = items[:MAX_ITEMS]  # a section is a summary, not a transcript of the evidence
         clean = []
         for it in items:
             if not isinstance(it, dict) or not isinstance(it.get("evidence"), list) or not it["evidence"]:
@@ -416,7 +447,7 @@ def validate(raw: object, ev: Evidence, district_ids: set[str]) -> dict | None:
 def llm_brief(ev: Evidence, mode: Mode, provider: LLMProvider) -> dict | None:
     if provider.name == "none":
         return None
-    system = ADVISOR_SYSTEM.format(audience=mode.name, focus=mode.focus, max_actions=MAX_ACTIONS)
+    system = ADVISOR_SYSTEM.format(audience=mode.name, focus=mode.focus, max_actions=MAX_ACTIONS, max_items=MAX_ITEMS)
     try:
         text = provider.complete(system, json.dumps(ev.model_view(), default=str), json_mode=True, temperature=0.2)
         raw = json.loads(text)
@@ -433,6 +464,18 @@ def build_brief(mode_id: str, provider: LLMProvider, include_engine: bool = True
     source = provider.name if sections else "rules"
     if sections is None:
         sections = rules_brief(ev, mode)
+    else:
+        # What a model should not be trusted with: counts (it can mis-read which number is which) and the
+        # engine's tested numbers. Both are put in by the system from the evidence.
+        rules = rules_brief(ev, mode)
+        sections["situation"] = [*rules["situation"][:2], *sections["situation"]]
+        if not sections["actions"] and rules["actions"]:
+            # the model proposed nothing although the evidence is above normal: use the rule-based actions, and say so
+            sections["actions"] = rules["actions"]
+            sections["uncertainty"].append(_item(
+                "The recommended actions were written by rules from the evidence, because the language model proposed none.",
+                ev.get("summary")[0]["id"]))
+        attach_engine_numbers(sections, ev)
     if simulated:  # whoever wrote the brief, it must say what it is built on
         marker = ev.get("exercise")[0]
         sections["situation"].insert(0, _item("EXERCISE: this brief is built on a simulated scenario, not on real alerts or river levels.", marker["id"]))

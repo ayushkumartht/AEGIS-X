@@ -1,105 +1,52 @@
-# AEGIS-X full-stack launch plan (Vercel + backend host)
+# Going live: Vercel (frontend) and Render (API)
 
-Date: 22 Oct 2026. Goal: AEGIS-X ko public website ki tarah live karna, sab features asli backend ke saath, koi dummy data ya fake button nahi.
+Updated 23 Oct 2026. There are no accounts or logins; if you expose the app publicly and want to restrict who can use it, put it behind your own access control (for example your host's password protection or an identity-aware proxy).
 
-This plan builds on [flood-final-status-and-demo.md](flood-final-status-and-demo.md) (what already works) and [final-implementation-plan.md](final-implementation-plan.md) (architecture).
+## Why two hosts
 
-**Status (22 Oct 2026):** Phases 1, 2, 3 and 5 are built, tested and pushed. Phase 4.3 is built (the Situation tab lists every source and marks estimates). Phase 4.2 is done as far as public data allows: the 50 Silchar relief camps named in the Cachar DDMA 2024 flood report are the shelter list (9 located on the map, 41 placed on high ground and labelled), with capacities from the report's 2024 average (274 people per camp). Phase 4.1: population uses the Census 2011 total (178,865); ward counts are not published and the WorldPop API timed out, so areas are still split by road length. The boat inventory is not published; 12 boats stay assumed, with the 2022 deployments cited in the note. What is left for you: the go-live steps in section 4.
-
----
-
-## 1. Hosting decision
-
-| Part | Where | Why |
+| Part | Host | Why |
 |---|---|---|
-| Frontend (React + Vite build) | **Vercel** | Static build, global CDN, free, auto deploy from GitHub. |
-| Backend (FastAPI + numpy/scipy) | **Render** (Docker web service) | Monte Carlo runs take 5-30 s of CPU, WebSockets stream progress, and the audit log needs a disk. Vercel serverless functions are short-lived, have no WebSockets and no lasting disk, so the engine does not belong there. |
-| Database | SQLite on a Render **persistent disk** (`/var/data/aegis.db`) | No extra service, already tested. Without a disk (Render free plan) everything still works but the audit log resets when the server restarts. |
-| LLM | Groq (`GROQ_API_KEY` set in Render env vars) | Key stays on the server. The browser never sees it. |
-
-The backend image is plain Docker, so the same image also runs on Railway, Fly.io or a VPS without changes.
+| Frontend (React + Vite build) | **Vercel** | Static build, CDN, deploys from GitHub. `frontend/vercel.json` rewrites every path to `index.html`, so `/command` and `/console/cachar` survive a reload. |
+| API (FastAPI, numpy / scipy) | **Render**, Docker web service | Monte Carlo runs take seconds of CPU, simulations stream over WebSockets, and the audit log needs a disk. Serverless functions are short-lived and have none of that. |
+| Database | SQLite on a Render persistent disk (`/var/data/aegis.db`) | No extra service. Without a disk the decision log resets on each deploy. |
+| AI | Groq (`GROQ_API_KEY` set on the API only) | The browser never sees the key. |
 
 ```
-Browser ──HTTPS──> Vercel (static React app)
-   │
-   └──HTTPS / WSS──> Render: FastAPI (uvicorn) ──> Groq API (narration)
-                         │                     └─> Open-Meteo (live forecast)
-                         └─ /var/data: aegis.db (runs, reports, decisions, users)
-                         └─ /app/data: Cachar scenario + cached source data (shipped in the image)
+Browser --HTTPS--> Vercel (static React app)
+   └--HTTPS / WSS--> Render: FastAPI --> Groq (narration, briefs)
+                          ├-> Open-Meteo, NDMA SACHET, GDACS (live data)
+                          ├-> /var/data/aegis.db (runs, reports, decisions, events)
+                          └-> /app/data (built Cachar scenario and cached sources, shipped in the image)
 ```
 
-## 2. What has to change (and status)
+The API image is plain Docker (`backend/Dockerfile`), so it also runs on Railway, Fly.io or a VPS.
 
-### Phase 1: deploy-ready (must have)
-| # | Work | Files |
+## Steps
+
+1. **API on Render.** New > Blueprint > pick the repository. Render reads `render.yaml`. Set the secrets it asks for: `GROQ_API_KEY` and `AEGIS_CORS_ORIGINS` (your Vercel URL). Open `https://<api>/api/v1/health`: it should show `"status": "ok"` and `"llm_provider": "groq"`.
+2. **Frontend on Vercel.** New Project > import the repository > Root Directory `frontend` > Framework Vite. Add `VITE_API_URL=https://<api>` and deploy.
+3. Put the Vercel URL into the API's `AEGIS_CORS_ORIGINS` (and, for preview deploys, `AEGIS_CORS_ORIGIN_REGEX`, for example `https://aegis-x-.*\.vercel\.app`) and redeploy the API.
+4. Check `/command` (try **Exercise**), `/console/cachar` (test a plan), and `/audit`.
+
+## Environment variables
+
+API (Render):
+
+| Name | Example | Notes |
 |---|---|---|
-| 1.1 | Ship the built Cachar scenario, replay and source cache in git, so the server does not need to rebuild from Overpass at boot | `.gitignore`, `data/processed/`, `data/raw/` |
-| 1.2 | Backend Dockerfile + `.dockerignore`; listens on `$PORT` | `backend/Dockerfile`, `.dockerignore` |
-| 1.3 | `render.yaml` blueprint (web service, disk, env vars) | `render.yaml` |
-| 1.4 | CORS: exact origins plus an optional regex for Vercel preview URLs | `settings.py`, `api/main.py` |
-| 1.5 | Frontend `vercel.json` (SPA rewrites so `/console/cachar` reloads work) and `VITE_API_URL` | `frontend/vercel.json`, `.env.example` |
-| 1.6 | Simulation falls back from WebSocket to plain HTTP if a proxy blocks WebSockets | `frontend/src/api/client.ts` |
-| 1.7 | Public-site protection: per-IP rate limit on heavy endpoints and a cap on concurrent heavy jobs, so one visitor cannot freeze the server or burn the Groq quota | `api/limits.py` |
-| 1.8 | Remove the unused `groq` pip dependency (providers use httpx) | `pyproject.toml` |
+| `AEGIS_ENV` | `prod` | |
+| `AEGIS_CORS_ORIGINS` | `https://aegis-x.vercel.app` | required |
+| `AEGIS_CORS_ORIGIN_REGEX` | `https://aegis-x-.*\.vercel\.app` | optional |
+| `AEGIS_DB_URL` | `sqlite:////var/data/aegis.db` | set by `render.yaml` |
+| `LLM_PROVIDER`, `GROQ_API_KEY`, `LLM_MODEL` | `groq`, `gsk_...` | the Groq default model is `openai/gpt-oss-120b` |
+| `AEGIS_OPS_POLL` | `true` | live alert polling; run it in one process only |
+| `AEGIS_RATE_LIMIT_PER_MIN`, `AEGIS_MAX_HEAVY_JOBS` | `30`, `2` | protects the heavy endpoints on a public site |
 
-### Phase 2: accounts and Command Center
-| # | Work | Files |
-|---|---|---|
-| 2.1 | Auth: PBKDF2 password hashes (stdlib), signed expiring tokens (HMAC-SHA256), roles `admin` / `officer` / `viewer`. First admin comes from `AEGIS_ADMIN_EMAIL` + `AEGIS_ADMIN_PASSWORD` env vars | `aegis/auth.py`, `storage/db.py` (user table), `api/routers/auth.py` |
-| 2.2 | Recording a decision needs an `officer` or `admin` login; the author is taken from the token, not typed by the client. Exploring and running simulations stays public | `routers/workflow.py`, `DecisionBar.tsx` |
-| 2.3 | Admin can add officers and viewers | `routers/auth.py` |
-| 2.4 | Command Center page `/command` (admin only): system health, LLM status, live forecast per district, run history, field reports, decision log, user management. All numbers come from the database | `pages/CommandCenterPage.tsx`, `routers/admin.py` |
-| 2.5 | Login page, auth store, header shows who is signed in | `pages/LoginPage.tsx`, `state/authStore.ts` |
+Frontend (Vercel): `VITE_API_URL` (the API's URL).
 
-### Phase 3: simulation you can watch
-| # | Work |
-|---|---|
-| 3.1 | Hour-by-hour playback ("typical future", "bad day") in the Cesium real-terrain view too: water level rises over the real terrain, settlements turn red/green, shelters fill |
-| 3.2 | Same timeline control in both 3D views |
+## Known limits after launch
 
-### Phase 4: data honesty
-| # | Work |
-|---|---|
-| 4.1 | Population: replace the road-length proxy with WorldPop counts when the WorldPop stats API is reachable; keep the proxy only as a labelled fallback |
-| 4.2 | Shelters: `data/reference/cachar_shelters.csv` is filled only from a citable source (DDMP Cachar). Until then the UI labels shelters as "from OpenStreetMap" and assembly points as "assumed" |
-| 4.3 | Every layer and number in the UI shows its source |
-
-### Phase 5: finish
-| # | Work |
-|---|---|
-| 5.1 | Tests for auth, admin, rate limit, HTTP fallback |
-| 5.2 | CI runs backend tests + frontend type-check/build |
-| 5.3 | Update the old status table in `final-implementation-plan.md` |
-
-## 3. Environment variables
-
-### Backend (Render)
-| Name | Example | Required |
-|---|---|---|
-| `AEGIS_ENV` | `prod` | yes |
-| `AEGIS_CORS_ORIGINS` | `https://aegis-x.vercel.app` | yes |
-| `AEGIS_CORS_ORIGIN_REGEX` | `https://aegis-x-.*\.vercel\.app` | optional (preview deploys) |
-| `AEGIS_DB_URL` | `sqlite:////var/data/aegis.db` | yes with a disk |
-| `AEGIS_SECRET_KEY` | long random string | yes (signs login tokens) |
-| `AEGIS_ADMIN_EMAIL` / `AEGIS_ADMIN_PASSWORD` | your admin login | yes (first boot creates the admin) |
-| `LLM_PROVIDER` | `groq` | yes |
-| `GROQ_API_KEY` | `gsk_...` | yes |
-| `AEGIS_RATE_LIMIT_PER_MIN` | `20` | optional |
-
-### Frontend (Vercel)
-| Name | Example |
-|---|---|
-| `VITE_API_URL` | `https://aegis-x-api.onrender.com` |
-
-## 4. Go-live steps
-
-1. **Backend on Render**: New > Blueprint > pick the GitHub repo. Render reads `render.yaml`. Fill the secret env vars (`GROQ_API_KEY`, `AEGIS_SECRET_KEY`, `AEGIS_ADMIN_PASSWORD`, `AEGIS_CORS_ORIGINS`). Wait for the deploy, then open `https://<api>/api/v1/health`. It should show `"status": "ok"` and `"llm_provider": "groq"`.
-2. **Frontend on Vercel**: New Project > import the repo > Root Directory `frontend` > Framework Vite. Add `VITE_API_URL=https://<api>` > Deploy.
-3. Put the Vercel URL into Render's `AEGIS_CORS_ORIGINS` and redeploy the backend.
-4. Open `https://<vercel-url>/console/cachar`, run a plan, open the Red Team tab, sign in at `/login`, record a decision, check `/command`.
-5. **Rotate the Groq key** that was shared in chat: create a new key in the Groq console, put it in Render and local `.env`, delete the old one.
-
-## 5. Known limits after launch
-- Render free plan sleeps after 15 min idle; the first request then takes ~1 min. A paid instance stays awake.
-- Without a persistent disk, the audit log and users reset on each deploy.
+- Render's free plan sleeps after 15 minutes idle (the first request then takes about a minute) and has no persistent disk. A paid instance stays awake and keeps the decision log.
+- Heavy endpoints are rate limited per visitor IP and run at most `AEGIS_MAX_HEAVY_JOBS` at once. The first Cachar brief runs the evacuation engine and can take up to a minute; the result is then cached for 30 minutes.
 - Model parameters for people's behaviour (compliance, speeds) are assumptions shown as sliders, not calibrated against evacuation records.
+- Never commit `.env`. If a key has been pasted anywhere public, rotate it.

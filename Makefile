@@ -1,17 +1,16 @@
-.PHONY: dev test lint fmt clean
+.PHONY: dev test typecheck build clean
 
 dev:
 	powershell -File scripts/dev.ps1
 
 test:
-	cd backend && pytest -q
+	cd backend && python -m pytest -q
 
-lint:
-	ruff check backend/
-	cd frontend && npx tsc --noEmit
+typecheck:
+	cd frontend && npx tsc -b
 
-fmt:
-	ruff format backend/
+build:
+	cd frontend && npm run build
 
 clean:
-	find . -type d -name __pycache__ -exec rm -rf {} + 2>/dev/null || true
+	find . -type d -name __pycache__ -not -path "./.venv/*" -exec rm -rf {} + 2>/dev/null || true

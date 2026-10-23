@@ -128,6 +128,51 @@ def test_llm_brief_with_an_invented_number_is_replaced_by_rules(db):
     assert out["source"] == "rules" and "48213" not in json.dumps(out["sections"])
 
 
+def test_counts_and_engine_numbers_are_put_in_by_the_system_not_the_model(db, monkeypatch):
+    seed()
+    original = advisor.collect_evidence
+    facts = {"district": "Cachar", "plan": "baseline plan", "tested_against": "the live forecast", "futures_tested": 150,
+             "evacuated_on_average_pct": 77, "evacuated_on_a_bad_day_pct": 41, "plan_fails_in_pct_of_futures": 33,
+             "single_points_of_failure": [{"element": "Test Bridge", "drop_pct": 12.5}], "plan_tends_to_fail_when": None,
+             "people_moved_unnecessarily_on_average": 900, "check_first": None, "estimates": []}
+
+    def with_engine(include_engine=True, simulated=False):
+        ev = original(False, simulated)
+        ev.add("engine", "Cachar: tested plan", facts, "cachar")
+        return ev
+
+    monkeypatch.setattr(advisor, "collect_evidence", with_engine)
+    reply = good_reply(with_engine())
+    # 22 is in the evidence (districts watched), so the number guardrail passes it, but it is not the severe count
+    reply["situation"][0]["text"] = "There are 22 severe districts."
+    out = advisor.build_brief("police", FakeLLM(reply))
+    assert out["source"] == "fake"
+    assert "22 severe" not in json.dumps(out["sections"]["situation"][:2])  # the first lines are the system's own counts
+    assert out["sections"]["situation"][0]["text"].startswith("0 severe, 1 warning")
+    act = out["sections"]["actions"][0]
+    assert "77% on average" in act["gain"] and "900 people" in act["cost"] and "Test Bridge" in act["risk"]
+    assert "E4" in act["evidence"] and act["district_id"] == "cachar"
+
+
+def test_a_model_that_proposes_no_actions_gets_rule_based_ones_and_the_brief_says_so(db):
+    seed()
+    ev = advisor.collect_evidence(include_engine=False)
+    reply = good_reply(ev)
+    reply["actions"] = []
+    out = advisor.build_brief("police", FakeLLM(reply), include_engine=False)
+    assert out["source"] == "fake" and out["recommendations"]  # warning level in the evidence: actions are not left empty
+    assert any("written by rules" in u["text"] for u in out["sections"]["uncertainty"])
+
+
+def test_long_model_sections_are_cut_to_a_summary(db):
+    seed()
+    ev = advisor.collect_evidence(include_engine=False)
+    reply = good_reply(ev)
+    reply["situation"] = reply["situation"] * 12
+    out = advisor.build_brief("police", FakeLLM(reply), include_engine=False)
+    assert len(out["sections"]["situation"]) <= advisor.MAX_ITEMS + 2  # the model's items plus the system's two count lines
+
+
 @pytest.mark.parametrize("break_it", [
     lambda r: r["worst"][0].update(evidence=["E999"]),            # an evidence id that does not exist
     lambda r: r["actions"][0].update(district_id="atlantis"),     # a district that is not watched

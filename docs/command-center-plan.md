@@ -1,10 +1,10 @@
 # Command Center: final architecture and build plan
 
-Date: 22 Oct 2026. Status: **final, built** (C1 to C6 done on 22 Oct 2026; C7 needs the owner, see section 11).
+Date: 22 Oct 2026. Updated 23 Oct 2026: accounts, roles and the admin page were removed; anyone can use every endpoint and the decision log records a typed name. Status: **final, built** (C1 to C6 done on 22 Oct 2026; C7 needs the owner, see section 11).
 
 **What it is.** A separate dashboard at `/command`, the full version of what Dikshansh started: one screen for many districts, fed by **live official data** (NDMA SACHET alerts including CWC river gauges, GDACS, GloFAS river forecasts), with an **AI strategy advisor** that proposes actions using only that data and the AEGIS-X engine's own tested numbers. People decide; every decision is stored in a tamper-evident log. Flood is built first. Crowd and fire plug into the same design later.
 
-Reads with: [archive/dikshansh-contributions-2026-10-20.md](archive/dikshansh-contributions-2026-10-20.md) (what he built), [final-implementation-plan.md](final-implementation-plan.md) (engine, flood console), [fullstack-deployment-plan.md](fullstack-deployment-plan.md) (hosting, accounts).
+Reads with: [archive/dikshansh-contributions-2026-10-20.md](archive/dikshansh-contributions-2026-10-20.md) (what he built), [final-implementation-plan.md](final-implementation-plan.md) (engine, flood console), [fullstack-deployment-plan.md](fullstack-deployment-plan.md) (hosting).
 
 ---
 
@@ -12,9 +12,8 @@ Reads with: [archive/dikshansh-contributions-2026-10-20.md](archive/dikshansh-co
 
 | Route | Who | What |
 |---|---|---|
-| `/command` | everyone (AI advisor: officer, admin) | **Command Center**: India map with live alerts and district flood risk, alert list, district risk table, feed health, AI strategy brief with Accept/Reject, operating-mode selector, place search |
-| `/console/:district` | everyone (decisions: officer, admin) | the existing deep-dive flood tool; opened from the Command Center |
-| `/admin` | admin | system overview and accounts (was `/command` before) |
+| `/command` | everyone | **Command Center**: India map with live alerts and district flood risk, alert list, district risk table, feed health, AI strategy brief with Accept/Reject, operating-mode selector, place search |
+| `/console/:district` | everyone | the existing deep-dive flood tool; opened from the Command Center |
 | `/audit` | everyone | decision log, now with "chain intact" check |
 
 ## 2. Live data (checked from this machine on 22 Oct 2026)
@@ -132,10 +131,10 @@ Cost and load: one brief = one LLM call and at most two engine runs of ≤ 300 f
 | GET | `/ops/feeds` | all | per feed: last success/attempt/error, items |
 | GET | `/ops/events` | all | events (filters: hazard, severity, state, active, days) + GeoJSON + counts + week-over-week |
 | GET | `/ops/districts` | all | watched districts with latest indicator, level, active alerts |
-| POST | `/ops/refresh` | officer, admin | refresh feeds now |
-| POST | `/ops/brief` | officer, admin | build a brief (body: mode, scope) |
-| GET | `/ops/briefs` | officer, admin | recent briefs |
-| POST | `/ops/recommendations/{id}/decision` | officer, admin | accept / reject (hash-chained) |
+| POST | `/ops/refresh` | anyone | refresh feeds now |
+| POST | `/ops/brief` | anyone | build a brief (body: mode, scope) |
+| GET | `/ops/briefs` | anyone | recent briefs |
+| POST | `/ops/recommendations/{id}/decision` | anyone (the name typed in the header is logged, unverified) | accept / reject (hash-chained) |
 | GET | `/ops/search?q=` | all | place search in India |
 | GET | `/audit/integrity` | all | chain check |
 
@@ -144,7 +143,6 @@ Cost and load: one brief = one LLM call and at most two engine runs of ≤ 300 f
 ```
 frontend/src/
   pages/CommandCenterPage.tsx      new /command
-  pages/AdminPage.tsx              old Command Center, now /admin
   features/ops/
     OpsMap.tsx                     MapLibre: alerts (severity), district risk, built districts, search pin
     FeedHealth.tsx                 one chip per feed
@@ -187,7 +185,7 @@ Tests: CAP parsing on recorded XML (no network), Gumbel and exceedance on synthe
 |---|---|---|---|
 | C1 | Feeds: SACHET + GDACS parsers, store, poller, `/ops/feeds`, `/ops/events` | Today's alerts appear with severity and place; a failing feed shows as unavailable | done |
 | C2 | District risk: watched districts, river cell, return periods, exceedance, `/ops/districts` | Each watched district has a level with its numbers; Cachar's June 2022 history passes the 5-year flow | done |
-| C3 | Command Center page; admin moved to `/admin` | An officer sees India alerts and district levels and opens Cachar's console from it | done |
+| C3 | Command Center page | An officer sees India alerts and district levels and opens Cachar's console from it | done |
 | C4 | Advisor | Every number traces to evidence; LLM off still gives a brief; invented number rejected (test) | done |
 | C5 | Hash-chained decisions + evidence + `/audit/integrity` | Editing a stored row by hand is reported | done |
 | C6 | Console: Resources tab, `?tab=` | — | done |
