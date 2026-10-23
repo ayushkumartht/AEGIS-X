@@ -6,7 +6,7 @@ import hashlib
 import json
 from typing import Any
 
-from aegis.storage.db import connect, dumps, now_iso
+from aegis.storage.db import connect, dumps, now_iso, write_lock
 
 
 def add_plan(district: str, origin: str, plan: dict) -> int:
@@ -106,7 +106,7 @@ def add_decision(
         "evidence_json": dumps(evidence or {}),
     }
     with connect() as c:
-        c.execute("BEGIN IMMEDIATE")  # one writer at a time, so two decisions cannot share a predecessor
+        write_lock(c, "decision")  # one writer at a time, so two decisions cannot share a predecessor
         last = c.execute("SELECT decision_hash FROM decision ORDER BY id DESC LIMIT 1").fetchone()
         previous = (last["decision_hash"] if last and last["decision_hash"] else "")
         digest = _decision_hash(previous, row)

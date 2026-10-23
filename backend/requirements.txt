@@ -7,3 +7,5 @@ pydantic==2.14.1
 pydantic-settings==2.16.0
 httpx==0.28.1
 PyYAML==6.0.3
+psycopg[binary]==3.3.6
+psycopg-pool==3.3.3

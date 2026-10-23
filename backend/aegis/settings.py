@@ -20,7 +20,10 @@ class Settings(BaseSettings):
 
     aegis_env: str = "dev"
     aegis_data_dir: Path = REPO_ROOT / "data"
+    # sqlite:///path (default) or a postgresql:// URL, e.g. Supabase's session pooler connection string
     aegis_db_url: str = f"sqlite:///{(REPO_ROOT / 'data' / 'aegis.db').as_posix()}"
+    # PostgreSQL only: the schema the tables live in (tests use a throwaway one)
+    aegis_db_schema: str = "public"
     aegis_offline: bool = False
     aegis_cors_origins: str = "http://localhost:5173"
     aegis_cors_origin_regex: str = ""  # e.g. https://aegis-x-.*\.vercel\.app for preview deploys

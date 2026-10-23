@@ -8,13 +8,23 @@ from aegis.domains.crowd.model import CrowdModel
 from aegis.domains.fire.model import FireModel
 from aegis.domains.flood.model import FloodModel
 from aegis.ingest.http import use_transport
-from aegis.settings import Settings
+from aegis.settings import Settings, get_settings
 
 
 @pytest.fixture(autouse=True)
 def no_background_polling(monkeypatch):
     """The Command Center poller must never run during tests: it would call the live feeds."""
     monkeypatch.setenv("AEGIS_OPS_POLL", "false")
+
+
+@pytest.fixture(autouse=True)
+def isolated_database(tmp_path, monkeypatch):
+    """Never let a test reach the database in .env (it may be the live Supabase); tests may override this."""
+    monkeypatch.setenv("AEGIS_DB_URL", f"sqlite:///{(tmp_path / 'default.db').as_posix()}")
+    monkeypatch.delenv("AEGIS_DB_SCHEMA", raising=False)
+    get_settings.cache_clear()
+    yield
+    get_settings.cache_clear()
 
 
 @pytest.fixture(scope="session")

@@ -1,6 +1,9 @@
 -- AEGIS-X schema for Supabase (PostgreSQL).
--- Paste into Supabase -> SQL Editor -> Run. Safe to run more than once.
+-- The backend applies this file itself on first connect; it can also be pasted into
+-- Supabase -> SQL Editor -> Run. Safe to run more than once.
 -- Same tables and column names as the SQLite schema in db.py, with Postgres types.
+-- Hashed decision fields and feed timestamps stay text: the hash chain needs the exact
+-- bytes back, and alert feeds do not always send parseable times.
 -- Row Level Security is on with no policies: the public anon key can read or write nothing.
 -- Only the backend, connecting with the database password, can use these tables.
 
@@ -45,15 +48,19 @@ create table if not exists decision (
   district       text not null,
   author         text not null,
   action         text not null check (action in ('accept', 'edit', 'reject')),
-  plan_json      jsonb not null,
+  plan_json      text not null,
   run_id         bigint references run (id),
   explanation    text not null,
   note           text not null,
-  evidence_json  jsonb not null default '{}'::jsonb,
+  evidence_json  text not null default '{}',
   previous_hash  text,
   decision_hash  text
 );
 create index if not exists decision_district on decision (district, id desc);
+-- databases created from the first version of this file had jsonb here
+alter table decision alter column plan_json type text using plan_json::text;
+alter table decision alter column evidence_json type text using evidence_json::text;
+alter table decision alter column evidence_json set default '{}';
 
 -- The decision log is append-only: rows can be added, never changed or removed.
 create or replace function decision_append_only() returns trigger language plpgsql as $$
@@ -82,13 +89,16 @@ create table if not exists ops_event (
   lon           double precision,
   place_method  text not null,
   district_id   text,
-  effective     timestamptz,
-  expires       timestamptz,
-  sent          timestamptz not null,
+  effective     text,
+  expires       text,
+  sent          text not null,
   gauge_json    jsonb,
   url           text not null,
   fetched_at    timestamptz not null default now()
 );
+alter table ops_event alter column effective type text using effective::text;
+alter table ops_event alter column expires type text using expires::text;
+alter table ops_event alter column sent type text using sent::text;
 create index if not exists ops_event_sent on ops_event (sent);
 create index if not exists ops_event_district on ops_event (district_id);
 

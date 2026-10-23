@@ -1,8 +1,5 @@
 # Team Doc 1: Problem kya hai aur humne kya banaya
 
-*Kiske liye:* team ke woh log jinhe AI ka basic idea hai, par coding ya engineering nahi aati. Isme technical shabd kam se kam hain.
-
----
 
 ## 1. Ek kahani se shuru karte hain
 
